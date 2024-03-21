@@ -230,7 +230,7 @@ class M_E_GA_Base:
         decoded_genes = self.encoding_manager.decode(encoded_organism, verbose=False)
         if format:
             decoded_genes = [gene for gene in decoded_genes if gene not in ['Start', 'End']]
-            return ''.join(decoded_genes)
+            return decoded_genes
         return decoded_genes
 
     def encode_string(self, genetic_string):
@@ -302,18 +302,17 @@ class M_E_GA_Base:
 
     
     def evaluate_population_fitness(self):
-        # Define a wrapper function that will be called by each thread
+        # Dynamically determine the number of max_workers
+        num_cpus = os.cpu_count() or 1  # Default to 1 if os.cpu_count() returns None
+        max_workers = num_cpus * 4  # Example for I/O-bound tasks, adjust based on your tasks
+        
         def fitness_wrapper(organism):
             return self.fitness_function(organism, self.encoding_manager)
         
         fitness_scores = []
-        # Use ThreadPoolExecutor to create a pool of threads
-        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-            # Map the population to the fitness_wrapper function
-            # and execute them in parallel using threads
+        # Use ThreadPoolExecutor with dynamically determined max_workers
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             results = executor.map(fitness_wrapper, self.population)
-            
-            # Collect the fitness scores from the results
             fitness_scores = list(results)
         
         return fitness_scores
@@ -501,9 +500,9 @@ class M_E_GA_Base:
         if gene in {start_codon, end_codon}:
             mutation_choices = ['delimit_delete', 'swap',]
         elif depth > 0:
-            mutation_choices = [ 'point', 'insertion', 'deletion']
+            mutation_choices = ['swap', 'point', 'insertion', 'deletion']
         else:
-            mutation_choices = ['point', 'insertion', 'deletion']
+            mutation_choices = ['swap', 'point', 'insertion', 'deletion']
 
         return random.choice(mutation_choices)
     
@@ -638,10 +637,25 @@ class M_E_GA_Base:
         return organism, index
     
 
-    def can_swap(self, organism, index_a, index_b):
+    '''def can_swap(self, organism, index_a, index_b):
         if 0 <= index_a < len(organism) and 0 <= index_b < len(organism):
             return True  # Assuming swapping between valid indices is always allowed
-        return False
+        return False'''
+
+    def can_swap(self, organism, index_a, index_b):
+        # Check if indices are within the bounds of the organism
+        if 0 <= index_a < len(organism) and 0 <= index_b < len(organism):
+            # Access the reverse encoding for 'Start' and 'End'
+            start_encoding = self.encoding_manager.reverse_encodings['Start']
+            end_encoding = self.encoding_manager.reverse_encodings['End']
+    
+            # Check if the genes at index_a or index_b are encoded as 'Start' or 'End'
+            if organism[index_a] in [start_encoding, end_encoding] and organism[index_b] in [start_encoding, end_encoding]:
+                return False  # Do not allow swap both genes are delimiters 'Start' or 'End'
+    
+            return True  
+    
+        return False  # Do not allow swap if indices are out of bounds
     
     
     
@@ -807,7 +821,6 @@ class M_E_GA_Base:
             # Optionally: check for convergence or stopping criteria
 
         # Compile final logs including initial configuration and outcomes
-        print(self.encoding_manager.encodings)
         if self.logging:
             final_log = {"initial_configuration": {
         "MUTATION_PROB": self.mutation_prob,

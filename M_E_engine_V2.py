@@ -47,38 +47,48 @@ class EncodingManager:
         
         
         
-    def integrate_uploaded_encodings(self, uploaded_encodings, base_genes):
+    def integrate_uploaded_encodings(self, uploaded_encodings, base_genes, verbose=False):
+        if verbose:
+            print("Starting integration of uploaded encodings...")
+    
         if isinstance(uploaded_encodings, str):
             uploaded_encodings = {int(k): v for k, v in (item.split(':') for item in uploaded_encodings.split(','))}
+            if verbose:
+                print("Uploaded encodings after parsing:", uploaded_encodings)
     
-        # Compute hash keys for default genes
-        default_genes = {'Start': self.generate_hash_key(self.gene_counter), 'End': self.generate_hash_key(self.gene_counter + 1)}
-        self.gene_counter += 2  # Update the gene counter to account for default genes
+        # Identify the hash keys for default genes 'Start' and 'End' from the initial manager
+        start_key = self.reverse_encodings.get('Start')
+        end_key = self.reverse_encodings.get('End')
+        if verbose:
+            print(f"Default gene 'Start' hash key: {start_key}, 'End' hash key: {end_key}")
     
-        # Validate default genes
-        for gene, expected_hash_key in default_genes.items():
-            if gene in uploaded_encodings and uploaded_encodings[gene] != expected_hash_key:
-                raise ValueError(f"Default gene '{gene}' in uploaded encodings does not match the expected hash key.")
-    
-        # Integrate base and default genes
+        # Integrate base and default genes along with captured segments
         for key, value in uploaded_encodings.items():
-            if isinstance(value, str):  # Base genes
-                if value in base_genes or value in default_genes:
-                    if value not in self.reverse_encodings:
-                        self.encodings[key] = value
-                        self.reverse_encodings[value] = key
+            if value in base_genes or key in [start_key, end_key]:
+                if value not in self.reverse_encodings or key in [start_key, end_key]:
+                    self.encodings[key] = value
+                    self.reverse_encodings[value] = key
+                    if verbose:
+                        print(f"Integrated gene '{value}' with key '{key}'.")
                 else:
-                    raise ValueError(f"Base gene '{value}' in uploaded encodings does not match the expected base genes.")
-    
-        # Integrate captured segments
-        for key, value in uploaded_encodings.items():
-            if isinstance(value, tuple):  # Captured segments
+                    if verbose:
+                        print(f"Gene '{value}' already in reverse encodings.")
+            elif isinstance(value, tuple):  # Handle captured segments
                 self.captured_segments[value] = key
                 self.encodings[key] = value
+                if verbose:
+                    print(f"Integrated captured segment '{value}' with key '{key}'.")
+            else:
+                if verbose:
+                    print(f"Skipping gene '{value}' with key '{key}' as it does not match expected base genes or default genes.")
     
         # Update gene counter to avoid conflicts
         max_hash_key = max(self.encodings.keys(), default=0)
         self.gene_counter = max(self.gene_counter, max_hash_key + 1)
+        if verbose:
+            print("Final updated gene counter:", self.gene_counter)
+
+
    
             
             
@@ -101,13 +111,7 @@ class EncodingManager:
                 # Print the gene as it is, directly
                 print(f"Encoding gene '{gene}' to hash key {hash_key}.")
     
-        return encoded_list  # Return the list of hash keys
-
-
-
-
-
-    
+        return encoded_list  # Return the list of hash keys    
     
     
 
@@ -208,7 +212,7 @@ class EncodingManager:
 
     
     
-    def generate_random_organism(self, functional_length=100, include_specials=False, special_spacing=10, probability=0.99, verbose=True):
+    def generate_random_organism(self, functional_length=100, include_specials=False, special_spacing=10, probability=0.99, verbose=False):
         gene_pool = [gene for gene in self.reverse_encodings if gene not in ['Start', 'End']]
         organism_genes = [random.choice(gene_pool) for _ in range(functional_length)]
         special_gene_indices = set()

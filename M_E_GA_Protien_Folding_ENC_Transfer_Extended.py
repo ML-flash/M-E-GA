@@ -7,12 +7,13 @@ Created on Sat Mar 23 13:38:05 2024
 
 import random
 from M_E_GA_Base_V2 import M_E_GA_Base
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 GLOBAL_SEED = 3010
 random.seed(GLOBAL_SEED)
-num_cycles=          2
+num_cycles=          3
 MAX_GENERATIONS =    500
 
 MUTATION_PROB =           0.015   
@@ -29,15 +30,15 @@ NUM_PARENTS =             100
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
-LOGGING =                 True
+LOGGING =                 False
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
-HARD_LIMIT = 200  # Hard limit for the organism size.
+HARD_LIMIT = 450  # Hard limit for the organism size.
 BASE_PENALTY = 2000  # Base for the exponential penalty, adjust as needed
-MIN_PENALTY = 700  #Lowest the penalty goes at max efficency
+MIN_PENALTY = 1925  #Lowest the penalty goes at max efficency
 
 
 GENES = ['R', 'L', 'U', 'D', 'F', 'B', 'H', 'P']
@@ -103,8 +104,6 @@ def hp_model_fitness_function_3d(encoded_individual, encoding_manager):
 
 
 
-
-
 class ExperimentGA(M_E_GA_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,6 +127,7 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
         instructor_ga = ExperimentGA(
            genes=genes,
            fitness_function=fitness_function,
+           after_population_selection=capture_best_organism,
            mutation_prob=           MUTATION_PROB,
            delimited_mutation_prob= DELIMITED_MUTATION_PROB,
            open_mutation_prob=      OPEN_MUTATION_PROB,
@@ -154,7 +154,8 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
 
         student_ga = ExperimentGA(
             genes=genes,
-            fitness_function=        fitness_function,
+            fitness_function=fitness_function,
+            after_population_selection=capture_best_organism,
             mutation_prob=           MUTATION_PROB,
             delimited_mutation_prob= DELIMITED_MUTATION_PROB,
             open_mutation_prob=      0.000,
@@ -182,6 +183,7 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
 
         control_ga = ExperimentGA(
             genes=                   genes,
+            after_population_selection=capture_best_organism,
             fitness_function=        fitness_function,
             mutation_prob=           MUTATION_PROB,
             delimited_mutation_prob= DELIMITED_MUTATION_PROB,
@@ -206,7 +208,13 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             seed =                   GLOBAL_SEED
             )
         control_ga.control_phase()
-
+        
+        instructor_best = best_organisms.get(f"{experiment_name}_Instructor_Cycle_{cycle}")
+        student_best = best_organisms.get(f"{experiment_name}_Student_Cycle_{cycle}")
+        control_best = best_organisms.get(f"{experiment_name}_Control_Cycle_{cycle}")
+        
+       
+        
         # Log results and compare the phases
         print("\n--- Results Summary ---")
         compare_results(instructor_ga, student_ga, control_ga, cycle)
@@ -216,8 +224,53 @@ def compare_results(instructor_ga, student_ga, control_ga, cycle):
     # Placeholder for demonstration purposes
     print(f"Results for Cycle {cycle}:\nInstructor Best Fitness: {max(instructor_ga.fitness_scores)}\nStudent Best Fitness: {max(student_ga.fitness_scores)}\nControl Best Fitness: {max(control_ga.fitness_scores)}")
 
+def capture_best_organism(ga_instance):
+    best_index = ga_instance.fitness_scores.index(max(ga_instance.fitness_scores))
+    best_organism = ga_instance.population[best_index]
+
+    # Decode the best organism using the instance's method
+    decoded_organism = ga_instance.decode_organism(best_organism, format=True)  # Ensure this produces a list of genes like ['R', 'U', ...]
+
+    # Convert decoded organism into 3D coordinates
+    x, y, z = 0, 0, 0
+    positions = [(x, y, z)]  # Initial position
+    for gene in decoded_organism:
+        if gene in directions:  # Assuming 'directions' is accessible here
+            dx, dy, dz = directions[gene]
+            x += dx
+            y += dy
+            z += dz
+            positions.append((x, y, z))
+
+    # Store the 3D coordinates along with its fitness score
+    best_organisms[ga_instance.experiment_name] = (positions, ga_instance.fitness_scores[best_index])
+
+
+def plot_organism(organism_coordinates, title='Best Organism'):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    xs = [coord[0] for coord in organism_coordinates]
+    ys = [coord[1] for coord in organism_coordinates]
+    zs = [coord[2] for coord in organism_coordinates]
+
+    # Plotting a line from each point to the next in the organism's path
+    ax.plot(xs, ys, zs, marker='o')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    plt.title(title)
+    plt.show()
 
 if __name__ == '__main__':
     genes = GENES
     experiment_name = input("Your_Experiment_Name: ")
+    best_organisms = {}
     run_experiment(experiment_name, num_cycles, genes, hp_model_fitness_function_3d)
+    
+    # Plotting the best organisms from each cycle
+    for experiment_name, (organism_coordinates, fitness) in best_organisms.items():
+        print(organism_coordinates)
+        plot_organism(organism_coordinates, title=f'{experiment_name} - Fitness: {fitness}')
+    

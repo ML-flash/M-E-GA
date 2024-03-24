@@ -22,7 +22,9 @@ class M_E_GA_Base:
                  delimiters=True, delimiter_space=2, logging=True,
                  generation_logging=True, mutation_logging=False,
                  crossover_logging=False, individual_logging=False,
-                 experiment_name="", encodings=None, seed = None):
+                 experiment_name="", encodings=None, seed = None,
+                 before_fitness_evaluation=None, after_population_selection=None,
+                 before_generation_finalize=None, **kwargs):
         # Directly use the provided genes list for the encoding manager without assuming a specific structure like 'gene['id']'
         self.genes = genes
         self.fitness_function = fitness_function
@@ -31,6 +33,9 @@ class M_E_GA_Base:
         self.encoding_manager = EncodingManager()
         self.log_filename = ""
         self.experiment_name = experiment_name
+        self.before_fitness_evaluation = before_fitness_evaluation
+        self.after_population_selection = after_population_selection
+        self.before_generation_finalize = before_generation_finalize
 
         # Set configuration parameters
         self.mutation_prob = mutation_prob
@@ -786,12 +791,11 @@ class M_E_GA_Base:
     
     
     def run_algorithm(self):
-        # Generate the initial population
         self.population = self.initialize_population()
-        #print(self.population)
-        #print(self.encoding_manager.encodings)
 
         for generation in range(self.max_generations):
+            self.current_generation = generation
+            self.start_new_generation_logging(self.current_generation)
             
             # Initialize a new log entry for this generation
             
@@ -800,7 +804,10 @@ class M_E_GA_Base:
             # Initialize a new log entry for this generation
             self.start_new_generation_logging(self.current_generation)
         
-            # Evaluate the fitness of the current population
+            # Callback before fitness evaluation
+            if self.before_fitness_evaluation:
+                self.before_fitness_evaluation(self)
+
             self.fitness_scores = self.evaluate_population_fitness()
             
             # Log the current generation's details if generation logging is enabled
@@ -811,16 +818,24 @@ class M_E_GA_Base:
             print(f"Generation {generation}: Average Fitness = {average_fitness}")
 
 
-            # Select and generate a new population based on fitness
+            # Callback after population selection and before new population generation
+            if self.after_population_selection:
+                self.after_population_selection(self)
+
             self.population = self.select_and_generate_new_population(generation)
 
-            # Log individual fitness if individual logging is enabled
+            # Callback before finalizing the current generation (e.g., for additional logging or analysis)
+            if self.before_generation_finalize:
+                self.before_generation_finalize(self)
+
             if self.logging and self.individual_logging:
                 self.individual_logging_fitness(generation, self.population, self.fitness_scores)
+
 
             # Optionally: check for convergence or stopping criteria
 
         # Compile final logs including initial configuration and outcomes
+        print(self.encoding_manager.encodings)
         if self.logging:
             final_log = {"initial_configuration": {
         "MUTATION_PROB": self.mutation_prob,
@@ -857,6 +872,3 @@ class M_E_GA_Base:
             log_filename = f"{log_folder}/{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
             with open(log_filename, 'w') as log_file:
                 json.dump(final_log, log_file, indent=4)
-
-        
-    

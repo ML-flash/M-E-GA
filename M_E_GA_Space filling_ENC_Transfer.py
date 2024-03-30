@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Mar 23 13:38:05 2024
+Created on Sun Mar 24 22:56:55 2024
 
 @author: Matt Andrews
 """
@@ -13,7 +13,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 GLOBAL_SEED = 3010
 random.seed(GLOBAL_SEED)
-num_cycles=          3
+num_cycles=          1
 MAX_GENERATIONS =    500
 
 MUTATION_PROB =           0.015   
@@ -30,76 +30,50 @@ NUM_PARENTS =             100
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
-LOGGING =                 False
+LOGGING =                 True
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
-HARD_LIMIT = 450  # Hard limit for the organism size.
-BASE_PENALTY = 2000  # Base for the exponential penalty, adjust as needed
-MIN_PENALTY = 1925  #Lowest the penalty goes at max efficency
-
-
-GENES = ['R', 'L', 'U', 'D', 'F', 'B', 'H', 'P']
+GENES = ['R', 'L', 'U', 'D', 'F', 'B']
 directions = {'R': (1, 0, 0), 'L': (-1, 0, 0), 'U': (0, 1, 0), 'D': (0, -1, 0), 'F': (0, 0, 1), 'B': (0, 0, -1)}
 
-    
-def calculate_penalty(encoded_length, decoded_length):
-    if encoded_length == 0:  # Prevent division by zero
-        return BASE_PENALTY
-
-    efficiency_ratio = decoded_length / encoded_length
-    penalty = BASE_PENALTY
-
-    if decoded_length <= HARD_LIMIT:
-        # As efficiency improves, reduce the penalty, but not below the min_penalty
-        if efficiency_ratio > 1:
-            penalty /= efficiency_ratio  # Decrease penalty for higher efficiency
-            penalty = max(penalty, MIN_PENALTY)  # Enforce a minimum penalty
-    else:
-        # For decoded lengths exceeding the hard limit, increase penalty smoothly
-        excess_ratio = decoded_length / HARD_LIMIT
-        penalty *= excess_ratio  # Increase penalty based on how much the length exceeds the limit
-
-    return penalty
-
-
-
-def hp_model_fitness_function_3d(encoded_individual, encoding_manager):
+# Fitness function to score the HP model of protein folding
+def space_filling_fitness_function(encoded_individual, encoding_manager):
+    encoded_length = len(encoded_individual)
     decoded_individual = encoding_manager.decode(encoded_individual)
     fitness_score = 0
-    x, y, z = 0, 0, 0  # Initial 3D coordinates
-    positions = {(x, y, z)}  # Track occupied 3D positions
-    last_direction = None
+    x, y, z = 0, 0, 0
+    volume_bound = 5  # Define the volume boundary
+    visited_positions = set([(x, y, z)])  # Initialize with the starting position
 
     for gene in decoded_individual:
         if gene == 'Start':
-            # Reset coordinates at the start of a new delimited region
-            x, y, z = 0, 0, 0
+            encoded_length -= 1
         elif gene == 'End':
-            continue
-        elif gene in directions:
+            encoded_length -= 1
+        if gene in directions:
             dx, dy, dz = directions[gene]
-            x += dx
-            y += dy
-            z += dz
-            if (x, y, z) in positions and last_direction != (-dx, -dy, -dz):  # Check for overlaps, excluding immediate backtrack
-                fitness_score -= 10  # Penalize overlaps
-            positions.add((x, y, z))
-            last_direction = (dx, dy, dz)
-        elif gene == 'H':
-            # Check for adjacent H-H contacts in 3D, excluding the last move's reverse direction
-            adjacent_positions = [(x + dx, y + dy, z + dz) for dx, dy, dz in directions.values() if (dx, dy, dz) != last_direction]
-            for pos in adjacent_positions:
-                if pos in positions:
-                    fitness_score += 1  # H-H contact found
+            new_pos = (x + dx, y + dy, z + dz)
 
-    # Apply size penalty
-    size_penalty = calculate_penalty(len(encoded_individual), len(decoded_individual))
-    fitness_score -= (size_penalty + (len(encoded_individual) / 10))
+            # Check if the new position is outside the defined volume or already visited
+            if not (-volume_bound <= new_pos[0] <= volume_bound and
+                    -volume_bound <= new_pos[1] <= volume_bound and
+                    -volume_bound <= new_pos[2] <= volume_bound) or new_pos in visited_positions:
+                break  # Stop evaluation and apply the length penalty
 
-    return (fitness_score + BASE_PENALTY)
+            # Valid move within the volume, increase fitness score and update visited positions
+            fitness_score += 1
+            visited_positions.add(new_pos)
+            x, y, z = new_pos  # Update the current position
+
+    # Apply a length penalty to encourage compactness
+    length_penalty = encoded_length * 0.01  # Adjust the penalty factor as needed
+    fitness_score -= length_penalty
+
+    return fitness_score
+
 
 
 
@@ -229,13 +203,17 @@ def capture_best_organism(ga_instance):
     best_organism = ga_instance.population[best_index]
 
     # Decode the best organism using the instance's method
-    decoded_organism = ga_instance.decode_organism(best_organism, format=True)  # Ensure this produces a list of genes like ['R', 'U', ...]
+    decoded_organism = ga_instance.decode_organism(best_organism, format=True)
+
+    # Print the decoded organism and its fitness
+    #print(f"Decoded Best Organism: {decoded_organism}")
+    #print(f"Fitness: {ga_instance.fitness_scores[best_index]}")
 
     # Convert decoded organism into 3D coordinates
     x, y, z = 0, 0, 0
     positions = [(x, y, z)]  # Initial position
     for gene in decoded_organism:
-        if gene in directions:  # Assuming 'directions' is accessible here
+        if gene in directions:
             dx, dy, dz = directions[gene]
             x += dx
             y += dy
@@ -244,7 +222,6 @@ def capture_best_organism(ga_instance):
 
     # Store the 3D coordinates along with its fitness score
     best_organisms[ga_instance.experiment_name] = (positions, ga_instance.fitness_scores[best_index])
-
 
 def plot_organism(organism_coordinates, title='Best Organism'):
     fig = plt.figure()
@@ -267,10 +244,9 @@ if __name__ == '__main__':
     genes = GENES
     experiment_name = input("Your_Experiment_Name: ")
     best_organisms = {}
-    run_experiment(experiment_name, num_cycles, genes, hp_model_fitness_function_3d)
+    run_experiment(experiment_name, num_cycles, genes, space_filling_fitness_function)
     
     # Plotting the best organisms from each cycle
     for experiment_name, (organism_coordinates, fitness) in best_organisms.items():
         print(organism_coordinates)
         plot_organism(organism_coordinates, title=f'{experiment_name} - Fitness: {fitness}')
-    

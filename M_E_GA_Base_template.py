@@ -1,5 +1,5 @@
 import random
-from M_E_GA_Base import M_E_GA_Base
+from M_E_GA_Base_V2 import M_E_GA_Base
 
 GLOBAL_SEED = 42
 random.seed(GLOBAL_SEED) # Ensure seed is used and passed properly as this is research code and reproducability is critical.

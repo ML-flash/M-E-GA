@@ -59,6 +59,7 @@ class M_E_GA_Base:
         self.crossover_logging = crossover_logging
         self.individual_logging = individual_logging
         self.seed = seed
+        self.relevant_data = None
         
         
         # Seed used for reproducability.
@@ -303,25 +304,36 @@ class M_E_GA_Base:
     
         return gene_key
 
-
-
-    
     def evaluate_population_fitness(self):
-        # Dynamically determine the number of max_workers
-        num_cpus = os.cpu_count() or 1  # Default to 1 if os.cpu_count() returns None
-        max_workers = num_cpus * 4  # Example for I/O-bound tasks, adjust based on your tasks
-        
-        def fitness_wrapper(organism):
-            return self.fitness_function(organism, self.encoding_manager)
-        
-        fitness_scores = []
-        # Use ThreadPoolExecutor with dynamically determined max_workers
+        num_cpus = os.cpu_count() or 1
+        max_workers = num_cpus * 4
+        self.relevant_data = None  # Initialize at the class level to ensure it's accessible elsewhere
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            results = executor.map(fitness_wrapper, self.population)
-            fitness_scores = list(results)
-        
-        return fitness_scores
- 
+            futures = []
+            if hasattr(self, 'fitness_function_wrapper'):
+                for ind in self.population:
+                    # Submitting each individual evaluation as a separate future task
+                    futures.append(executor.submit(self.fitness_function_wrapper, ind))
+            else:
+                for ind in self.population:
+                    # Submitting each individual evaluation as a separate future task
+                    futures.append(executor.submit(self.fitness_function, ind, self))
+
+            # Initialize an empty list to store fitness scores
+            self.fitness_scores = []
+
+            # Processing futures as they complete
+            for future in concurrent.futures.as_completed(futures):
+                fitness_score, data = future.result()  # Expecting the function to return a tuple
+                self.fitness_scores.append(fitness_score)
+
+                # Store the relevant data if it hasn't been stored yet
+                if self.relevant_data is None:
+                    self.relevant_data = data
+
+        # The function now returns just the fitness scores, as the relevant data is stored in a class attribute
+        return self.fitness_scores
     
 
     
@@ -377,7 +389,7 @@ class M_E_GA_Base:
 
         
         
-    def process_or_crossover_parents(self, new_population, parent1, parent2):
+    def process_or_crossover_parents(self, new_population, parent1, parent2, generation):
         if self.is_fully_delimited(parent1) or self.is_fully_delimited(parent2):
             if self.is_fully_delimited(parent1):
                 new_population.append(parent1)
@@ -390,7 +402,8 @@ class M_E_GA_Base:
             else:
                 offspring1, offspring2 = parent1[:], parent2[:]
     
-            new_population.extend([self.mutate_organism(offspring1), self.mutate_organism(offspring2)][:self.population_size - len(new_population)])
+            new_population.extend([self.mutate_organism(offspring1, generation), self.mutate_organism(offspring2,
+            generation)][:self.population_size - len(new_population)])
         return new_population
 
     def get_non_delimiter_indices(self, parent1, parent2):
@@ -620,6 +633,7 @@ class M_E_GA_Base:
 
         if first_action == 'forward' and self.can_swap(organism, index, index + 1):
             organism[index], organism[index + 1] = organism[index + 1], organism[index]
+
             swapped_index = index + 1
             swapped = True
         elif self.can_swap(organism, index, index - 1):
@@ -852,7 +866,8 @@ class M_E_GA_Base:
         "MAX_GENERATIONS": self.max_generations,
         "DELIMITERS": self.delimiters,
         "DELIMITER_SPACE": self.delimiter_space,
-        "seed": self.seed
+        "seed": self.seed,
+        "Fitness_function_data": self.relevant_data
         },
     # Include other sections of the final_log as needed
 

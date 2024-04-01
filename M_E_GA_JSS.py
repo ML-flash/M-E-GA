@@ -1,38 +1,36 @@
 import random
 from M_E_GA_Base_V2 import M_E_GA_Base
-
-
 GLOBAL_SEED =            None
 num_cycles =              1
 MAX_GENERATIONS =        500
 random.seed(GLOBAL_SEED)
 
 
-MUTATION_PROB =           0.06
-DELIMITED_MUTATION_PROB = 0.04
+MUTATION_PROB =           0.09
+DELIMITED_MUTATION_PROB = 0.06
 OPEN_MUTATION_PROB =      0.007
-CAPTURE_MUTATION_PROB =   0.001
+CAPTURE_MUTATION_PROB =   0.0015
 DELIMITER_INSERT_PROB =   0.004
 CROSSOVER_PROB =          .90
-ELITISM_RATIO =           0.5
-BASE_GENE_PROB =          0.30
-MAX_INDIVIDUAL_LENGTH =   100
+ELITISM_RATIO =           0.6
+BASE_GENE_PROB =          0.35
+MAX_INDIVIDUAL_LENGTH =   400
 POPULATION_SIZE =         600
 NUM_PARENTS =             100
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
 
-LOGGING =                 False
+LOGGING =                 True
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
 
-NUM_TASKS = 45
-NUM_MACHINES = 15
-NUM_JOBS = 15
+NUM_TASKS = 15000
+NUM_MACHINES = 500
+NUM_JOBS = 5000
 TASKS_PER_JOB = 3
 AVAILABLE_TIME = 3000
 
@@ -41,9 +39,6 @@ MIN_USAGE_LIMIT =          2
 MAX_USAGE_LIMIT =          10
 SPECIAL_PERCENTAGE =       0.10
 
-HARD_LIMIT =   100  #Hard limit for the organism size.
-BASE_PENALTY = 1  # Base for the exponential penalty, adjust as needed
-MIN_PENALTY =  0  #Lowest the penalty goes
 
 best_organism = {
     "genome": None,
@@ -51,26 +46,7 @@ best_organism = {
 }
 
 
-def calculate_penalty(encoded_length, decoded_length):
-    if encoded_length == 0:  # Prevent division by zero
-        return BASE_PENALTY
-
-    efficiency_ratio = decoded_length / encoded_length
-    penalty = BASE_PENALTY
-
-    if decoded_length <= HARD_LIMIT:
-        # As efficiency improves, reduce the penalty, but not below the min_penalty
-        if efficiency_ratio > 1:
-            penalty /= efficiency_ratio  # Decrease penalty for higher efficiency
-            penalty = max(penalty, MIN_PENALTY)  # Enforce a minimum penalty
-    else:
-        # For decoded lengths exceeding the hard limit, increase penalty smoothly
-        excess_ratio = decoded_length / HARD_LIMIT
-        penalty *= excess_ratio * 1.4 # Increase penalty based on how much the length exceeds the limit
-
-    return penalty
-
-def update_best_organism(current_genome, current_fitness, verbose ):
+def update_best_organism(current_genome, current_fitness, verbose = True):
     verbose = True
     global best_organism
     if current_fitness > best_organism["fitness"]:
@@ -146,8 +122,8 @@ def create_machines():
         efficiency_multiplier = 2 - (usage_limit - MIN_USAGE_LIMIT) / (MAX_USAGE_LIMIT - MIN_USAGE_LIMIT) * (1.9 - 0.1)
         machine_identifier = f"Machine_{machine_index}"
         efficent_machines[machine_identifier] = {
-            'usage_limit': usage_limit,
-            'efficiency_multiplier': efficiency_multiplier
+            'usage_limit': 100000,
+            'efficiency_multiplier': 1
         }
 
     return efficent_machines
@@ -180,10 +156,11 @@ GENES = list(tasks.keys()) + list(machines.keys())
 
 # Problem-specific fitness function
 def problem_specific_fitness_function(encoded_genome, ga_instance, jobs, tasks, machines, available_time, verbose=False):
-    global global_best_individual, global_best_fitness
+
+    #Very important do not change from here(
     decoded_genome = ga_instance.decode_organism(encoded_genome)
     encoded_length = len(encoded_genome)
-    decoded_length = len(decoded_genome)
+    decoded_length = len(decoded_genome) #)to here thank you for not changing this stuff.
     time_elapsed, fitness_score = 0, 0
     completed_tasks = set()
     machine_usages = {machine: 0 for machine in machines}  # Track machine usage
@@ -191,13 +168,19 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, jobs, tasks, 
     current_task = None
     skipped_task = 0
     current_job_contributions = {job_id: 0 for job_id in jobs}  # Track contributions to job completion
+    state = {
+            'completed_tasks': set(),
+            'machine_usages': {},
+            'total_time': 0,
+            # any other initial state you need
+        }
 
     for gene in decoded_genome:
-        # Adjust lengths for 'Start' and 'End' markers
+        # Adjust lengths for 'Start' and 'End' markers Do not remove from here (
         if gene in ['Start', 'End']:
             decoded_length -= 1
             encoded_length -= 1
-            continue
+            continue #)to here
 
         if expecting_machine:
             if gene in machines and current_task and gene in tasks[current_task] and machine_usages[gene] < \
@@ -209,13 +192,13 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, jobs, tasks, 
                     completed_tasks.add(current_task)
 
                     # Base reward for completing a task
-                    task_reward = 0.01
+                    task_reward = 0.02
 
                     # Check if the task belongs to any job and apply additional reward if it contributes to job completion
                     for job_id, job_details in jobs.items():
                         if current_task in job_details['tasks']:
                             # The task contributes to a job, so it's worth double
-                            task_reward *= 2
+                            task_reward *= 3
 
                             # Update job contributions
                             current_job_contributions[job_id] += 1 / len(job_details['tasks'])
@@ -250,22 +233,25 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, jobs, tasks, 
             print(f"Exceeded available time, total time elapsed: {time_elapsed}")
 
     # Apply penalties based on genome lengths
-    penalty = (.003 * decoded_length)
-    penalty += skipped_task * 3
+    penalty = (.004 * decoded_length)
+    penalty += skipped_task * 1
 
     fitness_score -= penalty
     #fitness_score
     if verbose:
         print(f"Applied penalty: {penalty}, current fitness score: {fitness_score}")
 
-    update_best_organism(encoded_genome, fitness_score, verbose)
+    update_best_organism(encoded_genome, fitness_score, verbose = True)
+    state['completed_tasks'] = list(state['completed_tasks'])
 
     return fitness_score, {
         "tasks": tasks,
         "machines": machines,
         "jobs": jobs,
         "time_elapsed": time_elapsed,
-        "completed_tasks": completed_tasks
+        "completed_tasks": completed_tasks,
+        "MAX_INDIVIDUAL_LENGTH": MAX_INDIVIDUAL_LENGTH,
+        "MISMATCH_PENALTY": 0.005,
     }
 
 

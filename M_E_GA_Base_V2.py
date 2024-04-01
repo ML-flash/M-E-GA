@@ -12,6 +12,7 @@ import os
 import concurrent.futures
 from M_E_engine_V2 import EncodingManager
 
+
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function, mutation_prob=0.01, delimited_mutation_prob=0.01,
                  open_mutation_prob=0.0001, capture_mutation_prob=0.00001,
@@ -22,7 +23,7 @@ class M_E_GA_Base:
                  delimiters=True, delimiter_space=2, logging=True,
                  generation_logging=True, mutation_logging=False,
                  crossover_logging=False, individual_logging=False,
-                 experiment_name="", encodings=None, seed = None,
+                 experiment_name="", encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
                  before_generation_finalize=None, **kwargs):
         # Directly use the provided genes list for the encoding manager without assuming a specific structure like 'gene['id']'
@@ -60,56 +61,48 @@ class M_E_GA_Base:
         self.individual_logging = individual_logging
         self.seed = seed
         self.relevant_data = None
-        
-        
+
         # Seed used for reproducability.
         if seed is not None:
-            random.seed(seed)  
+            random.seed(seed)
 
-        # Integrate encodings if provided, and add genes to the encoding manager
+            # Integrate encodings if provided, and add genes to the encoding manager
         if encodings:
             self.encoding_manager.integrate_uploaded_encodings(encodings, self.genes)
         else:
             for gene in self.genes:
-                self.encoding_manager.add_gene(gene, verbose = True)
+                self.encoding_manager.add_gene(gene, verbose=True)
 
         if self.logging:
             if not self.experiment_name:
                 self.experiment_name = input("Enter the experiment name: ")
                 self.log_filename = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
-                
-            
-    
+
     # Logging
-            
+
     def log_generation(self, generation, fitness_scores, population=None):
         if self.logging and self.generation_logging:
             average_fitness = sum(fitness_scores) / len(fitness_scores)
             median_fitness = sorted(fitness_scores)[len(fitness_scores) // 2]
             best_fitness = max(fitness_scores)
             worst_fitness = min(fitness_scores)
-    
+
             summary_log = {
                 "average_fitness": average_fitness,
                 "median_fitness": median_fitness,
                 "best_fitness": best_fitness,
                 "worst_fitness": worst_fitness,
             }
-    
+
             current_generation_log = self.logs[-1]  # Assuming this is called at the end of each generation
             current_generation_log["summary"] = summary_log
-            
-            
 
     def log_mutation(self, mutation_details):
         if self.logging and self.mutation_logging:
             # Find the latest generation log
             if self.logs:
                 current_generation_log = self.logs[-1]
-                current_generation_log["mutations"].append(mutation_details)                
-                    
-
-
+                current_generation_log["mutations"].append(mutation_details)
 
     def log_crossover(self, generation, parent1, parent2, crossover_point, offspring1, offspring2):
         if self.logging and self.crossover_logging:
@@ -123,8 +116,6 @@ class M_E_GA_Base:
             current_generation_log = self.logs[-1]
             current_generation_log["crossovers"].append(crossover_log)
 
-
-
     def log_fitness_function_settings(self, settings):
         if self.logging and self.fitness_settings_logging and not self.fitness_settings_logged:
             # Include new parameters in the settings log
@@ -137,8 +128,6 @@ class M_E_GA_Base:
             self.logs.append({"fitness_function_settings": settings})
             self.fitness_settings_logged = True
 
-
-
     def log_final_organism(self, generation, organism, target_phrase):
         if self.logging:
             final_organism_log = {
@@ -148,8 +137,6 @@ class M_E_GA_Base:
                 "decoded_organism": target_phrase,
             }
             self.logs.append(final_organism_log)
-
-
 
     def individual_logging_fitness(self, generation, population, fitness_scores):
         if self.logging and self.individual_logging:
@@ -161,9 +148,7 @@ class M_E_GA_Base:
                     "fitness_score": fitness_score
                 }
                 current_generation_log["individuals"].append(individual_log)
-                
-                
-                
+
     def start_new_generation_logging(self, generation_number):
         generation_log = {
             "generation": generation_number,
@@ -175,9 +160,6 @@ class M_E_GA_Base:
         }
         self.logs.append(generation_log)
 
-        
-        
-    
     def log_new_organism(self, organism_encoding):
         organism_log = {
             "encoding": organism_encoding,
@@ -185,9 +167,7 @@ class M_E_GA_Base:
         }
         if self.logs:  # Ensure there's at least one generation log
             self.logs[-1]["organisms"].append(organism_log)
-            
-    
-    
+
     def log_organism_state(self, stage, organism, generation):
         organism_log = {
             "stage": stage,
@@ -197,38 +177,36 @@ class M_E_GA_Base:
         }
         # Append this log to the current generation's log or a dedicated section for organisms
         self.logs[-1]["organisms"].append(organism_log)
-            
-            
-            
-    
-    
+
     def save_logs(self, logs, file_name=None):
         if file_name is None:
             file_name = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
-        
+
         # Define the directory path for logs within the current working directory
         logs_dir = os.path.join(os.getcwd(), "logs_and_log_tools")
-        
+
         # Check if the directory exists, and create it if it doesn't
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
-        
+
         # Define the full path for the log file
         full_path = os.path.join(logs_dir, file_name)
-        
+
         # Save the logs to the file
         with open(full_path, 'w') as f:
             json.dump(logs, f, indent=4)
-        
+
         print(f"Logs saved to {full_path}")
 
-# Utility functions
+    # Utility functions
 
     def initialize_population(self):
         population = []
         for _ in range(int(self.population_size)):
             individual_length = random.randint(2, self.max_individual_length)
-            organism = self.encoding_manager.generate_random_organism(functional_length=individual_length, include_specials=self.delimiters, probability=0.10,verbose = False)
+            organism = self.encoding_manager.generate_random_organism(functional_length=individual_length,
+                                                                      include_specials=self.delimiters,
+                                                                      probability=0.10, verbose=False)
             population.append(organism)
         return population
 
@@ -271,16 +249,15 @@ class M_E_GA_Base:
                 delimiter_stack.append((gene, i))
             elif gene == 'End':
                 if not delimiter_stack or delimiter_stack[-1][0] != 'Start':
-                    raise ValueError(f"Unmatched 'End' found at index {i} in context '{context}'. Decoded organism: {decoded_organism}")
+                    raise ValueError(
+                        f"Unmatched 'End' found at index {i} in context '{context}'. Decoded organism: {decoded_organism}")
                 delimiter_stack.pop()
         if delimiter_stack:
             unmatched_start = delimiter_stack[-1][1]
-            raise ValueError(f"Unmatched 'Start' found at index {unmatched_start} in context '{context}'. Decoded organism: {decoded_organism}")
+            raise ValueError(
+                f"Unmatched 'Start' found at index {unmatched_start} in context '{context}'. Decoded organism: {decoded_organism}")
         return organism
 
-            
-            
-            
     def select_gene(self, verbose=False):
         # Decide whether to select a base gene or a captured codon
         if random.random() < self.base_gene_prob or not self.encoding_manager.captured_segments:
@@ -294,14 +271,15 @@ class M_E_GA_Base:
                 return self.select_gene(verbose)
         else:
             # Select a captured codon
-            captured_codon_key = random.choice(list(self.encoding_manager.captured_segments.keys()))  # Choose a random captured codon key
-            gene_key = self.encoding_manager.captured_segments[captured_codon_key]  # Find the corresponding gene key for the captured segment
+            captured_codon_key = random.choice(
+                list(self.encoding_manager.captured_segments.keys()))  # Choose a random captured codon key
+            gene_key = self.encoding_manager.captured_segments[
+                captured_codon_key]  # Find the corresponding gene key for the captured segment
             gene_type = "Captured Segment"
-        
-        
+
         if verbose:
             print(f"Selected {gene_type}: {gene_key}")
-    
+
         return gene_key
 
     def evaluate_population_fitness(self):
@@ -334,61 +312,56 @@ class M_E_GA_Base:
 
         # The function now returns just the fitness scores, as the relevant data is stored in a class attribute
         return self.fitness_scores
-    
 
-    
-# Crossover functions
+    # Crossover functions
 
     def is_fully_delimited(self, organism):
         if not organism:  # Check if organism is empty
             return False  # An empty organism cannot be fully delimited
-    
+
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
         return organism[0] == start_codon and organism[-1] == end_codon
-    
-    
+
     def select_and_generate_new_population(self, generation):
         sorted_population = sorted(zip(self.population, self.fitness_scores), key=lambda x: x[1], reverse=True)
         num_elites = int(self.elitism_ratio * self.population_size)
         elites = [individual for individual, _ in sorted_population[:num_elites]]
         new_population = elites[:]
-    
+
         selected_parents = [individual for individual, _ in sorted_population[:self.num_parents]]
         shift = 0
-    
+
         while len(new_population) < self.population_size:
             for i in range(0, len(selected_parents) - 1, 2):
                 parent1_index = (i + shift) % len(selected_parents)
                 parent2_index = (i + 1 + shift) % len(selected_parents)
                 parent1, parent2 = selected_parents[parent1_index], selected_parents[parent2_index]
-    
+
                 if self.is_fully_delimited(parent1) or self.is_fully_delimited(parent2):
                     new_population.extend([parent1, parent2][:self.population_size - len(new_population)])
                     continue
-    
+
                 if random.random() < self.crossover_prob:
                     non_delimited_indices = self.get_non_delimiter_indices(parent1, parent2)
                     offspring1, offspring2 = self.crossover(parent1, parent2, non_delimited_indices)
                 else:
                     offspring1, offspring2 = parent1[:], parent2[:]
-                
+
                 # Log new offspring before mutation
                 self.log_new_organism(offspring1)
                 self.log_new_organism(offspring2)
-                
+
                 offspring1 = self.mutate_organism(offspring1, generation)
                 offspring2 = self.mutate_organism(offspring2, generation)
                 new_population.extend([offspring1, offspring2][:self.population_size - len(new_population)])
-    
+
             shift += 1
-    
+
         self.population = [self.repair(individual) for individual in new_population]
-        
+
         return new_population
 
-        
-        
     def process_or_crossover_parents(self, new_population, parent1, parent2, generation):
         if self.is_fully_delimited(parent1) or self.is_fully_delimited(parent2):
             if self.is_fully_delimited(parent1):
@@ -401,38 +374,36 @@ class M_E_GA_Base:
                 offspring1, offspring2 = self.crossover(parent1, parent2, non_delimited_indices)
             else:
                 offspring1, offspring2 = parent1[:], parent2[:]
-    
+
             new_population.extend([self.mutate_organism(offspring1, generation), self.mutate_organism(offspring2,
-            generation)][:self.population_size - len(new_population)])
+                                                                                                      generation)][
+                                  :self.population_size - len(new_population)])
         return new_population
 
     def get_non_delimiter_indices(self, parent1, parent2):
         delimiter_indices = self.calculate_delimiter_indices(parent1, parent2)
         non_delimited_indices = set(range(min(len(parent1), len(parent2))))
-    
+
         for start_idx, end_idx in delimiter_indices:
             non_delimited_indices -= set(range(start_idx, end_idx + 1))
-    
+
         return list(non_delimited_indices)
-    
-    
+
     def crossover(self, parent1, parent2, non_delimited_indices):
         crossover_point = self.choose_crossover_point(non_delimited_indices)
-    
+
         if crossover_point is None:
             offspring1, offspring2 = parent1[:], parent2[:]
         else:
             offspring1 = parent1[:crossover_point] + parent2[crossover_point:]
             offspring2 = parent2[:crossover_point] + parent1[crossover_point:]
-    
+
         self.log_crossover(self.current_generation, parent1, parent2, crossover_point, offspring1, offspring2)
         return offspring1, offspring2
-    
-    
+
     def choose_crossover_point(self, non_delimited_indices):
         return random.choice(non_delimited_indices) if non_delimited_indices else None
-    
-    
+
     def calculate_delimiter_indices(self, parent1, parent2):
         delimiter_indices = []
         for parent in [parent1, parent2]:
@@ -440,17 +411,14 @@ class M_E_GA_Base:
             ends = [i for i, codon in enumerate(parent) if codon == self.encoding_manager.reverse_encodings['End']]
             delimiter_indices.extend(zip(starts, ends))
         return delimiter_indices
-    
-    
+
     def is_entirely_delimited(self, organism, delimiter_indices):
         return delimiter_indices and delimiter_indices[0][0] == 0 and delimiter_indices[-1][1] == len(organism) - 1
 
-
-
-# Mutation functions
+    # Mutation functions
 
     def mutate_organism(self, organism, generation, mutation=None):
-        
+
         if self.logging:
             self.log_organism_state("before_mutation", organism, generation)
         i = 0
@@ -459,7 +427,7 @@ class M_E_GA_Base:
                 mutation_type = self.select_mutation_type(i, organism)
             else:
                 mutation_type = mutation
-            
+
             # Handle the various types of mutations
             if mutation_type == 'insertion':
                 organism, i = self.perform_insertion(organism, i)
@@ -479,15 +447,11 @@ class M_E_GA_Base:
                 organism, i = self.perform_open(organism, i, no_delimit=True)
             elif mutation_type == 'insert_delimiter_pair':
                 organism, i = self.insert_delimiter_pair(organism, i)
-            
+
             i = max(0, min(i + 1, len(organism)))
-    
+
         return organism
 
-
-    
-    
-    
     def select_mutation_type(self, index, organism):
         gene = organism[index]
         start_codon = self.encoding_manager.reverse_encodings['Start']
@@ -516,53 +480,51 @@ class M_E_GA_Base:
 
         # Mutation choices based on gene type and depth
         if gene in {start_codon, end_codon}:
-            mutation_choices = ['delimit_delete', 'swap',]
+            mutation_choices = ['delimit_delete', 'swap', ]
         elif depth > 0:
             mutation_choices = ['swap', 'point', 'insertion', 'deletion']
         else:
             mutation_choices = ['swap', 'point', 'insertion', 'deletion']
 
         return random.choice(mutation_choices)
-    
-    
-    
+
     def insert_delimiter_pair(self, organism, index):
-            mutation_log = {
-                'type': 'insert_delimiter_pair',
-                'generation': self.current_generation,
-                'index': index,
-                'start_codon_inserted': None,
-                'end_codon_inserted': None
-            }
-    
-            start_codon = self.encoding_manager.reverse_encodings['Start']
-            end_codon = self.encoding_manager.reverse_encodings['End']
-    
-            organism.insert(index, start_codon)
-            mutation_log['start_codon_inserted'] = {'codon': start_codon, 'index': index}
-    
-            end_delimiter_index = index + 2
-    
-            if end_delimiter_index <= len(organism):
-                organism.insert(end_delimiter_index, end_codon)
-                mutation_log['end_codon_inserted'] = {'codon': end_codon, 'index': end_delimiter_index}
-            else:
-                organism.append(end_codon)
-                mutation_log['end_codon_inserted'] = {'codon': end_codon, 'index': len(organism) - 1}
-    
-            if self.logging and self.mutation_logging:
-                self.log_mutation(mutation_log)
-    
-            return organism, end_delimiter_index
+        mutation_log = {
+            'type': 'insert_delimiter_pair',
+            'generation': self.current_generation,
+            'index': index,
+            'start_codon_inserted': None,
+            'end_codon_inserted': None
+        }
+
+        start_codon = self.encoding_manager.reverse_encodings['Start']
+        end_codon = self.encoding_manager.reverse_encodings['End']
+
+        organism.insert(index, start_codon)
+        mutation_log['start_codon_inserted'] = {'codon': start_codon, 'index': index}
+
+        end_delimiter_index = index + 2
+
+        if end_delimiter_index <= len(organism):
+            organism.insert(end_delimiter_index, end_codon)
+            mutation_log['end_codon_inserted'] = {'codon': end_codon, 'index': end_delimiter_index}
+        else:
+            organism.append(end_codon)
+            mutation_log['end_codon_inserted'] = {'codon': end_codon, 'index': len(organism) - 1}
+
+        if self.logging and self.mutation_logging:
+            self.log_mutation(mutation_log)
+
+        return organism, end_delimiter_index
 
     def perform_delimit_delete(self, organism, index):
         mutation_log = None
         delimiter_pair = self.find_delimiters(organism, index)
-    
+
         # Check if a valid pair of delimiters was found
         if delimiter_pair is not None:
             start_location, end_location = delimiter_pair
-    
+
             # Perform deletion of the segment enclosed by the delimiters
             organism = organism[:start_location] + organism[end_location + 1:]
             mutation_log = {
@@ -572,23 +534,21 @@ class M_E_GA_Base:
                 'end_location': end_location
             }
             index = start_location  # Adjust index after deletion
-    
+
         if self.logging and self.mutation_logging and mutation_log is not None:
             self.log_mutation(mutation_log)
-    
+
         return organism, index
-    
-    
-    
+
     def perform_insertion(self, organism, index):
         mutation_log = None
         gene_key = self.select_gene()  # This now returns the hash key directly
-    
+
         # The gene_key is now a hash key, so we can use it directly without conversion
         gene = self.encoding_manager.encodings.get(gene_key, "Unknown")
-    
+
         organism.insert(index, gene_key)  # Insert the hash key directly into the organism
-    
+
         mutation_log = {
             'type': 'insertion',
             'generation': self.current_generation,
@@ -596,21 +556,20 @@ class M_E_GA_Base:
             'gene_inserted': gene,
             'codon_inserted': gene_key  # Now using the hash key directly
         }
-    
+
         if self.logging and self.mutation_logging:
             self.log_mutation(mutation_log)
-
 
         return organism, index + 1
 
     def perform_point_mutation(self, organism, index):
         mutation_log = None
         new_codon = self.select_gene()  # This now returns a hash key directly
-    
+
         original_codon = organism[index]
         organism[index] = new_codon
         gene = self.encoding_manager.encodings.get(new_codon, "Unknown")
-    
+
         mutation_log = {
             'type': 'point_mutation',
             'generation': self.current_generation,
@@ -619,10 +578,10 @@ class M_E_GA_Base:
             'new_codon': new_codon,
             'gene': gene
         }
-    
+
         if self.logging and self.mutation_logging:
             self.log_mutation(mutation_log)
-    
+
         return organism, index
 
     def perform_swap(self, organism, index):
@@ -654,7 +613,6 @@ class M_E_GA_Base:
             self.log_mutation(mutation_log)
 
         return organism, index
-    
 
     '''def can_swap(self, organism, index_a, index_b):
         if 0 <= index_a < len(organism) and 0 <= index_b < len(organism):
@@ -667,17 +625,16 @@ class M_E_GA_Base:
             # Access the reverse encoding for 'Start' and 'End'
             start_encoding = self.encoding_manager.reverse_encodings['Start']
             end_encoding = self.encoding_manager.reverse_encodings['End']
-    
+
             # Check if the genes at index_a or index_b are encoded as 'Start' or 'End'
-            if organism[index_a] in [start_encoding, end_encoding] and organism[index_b] in [start_encoding, end_encoding]:
+            if organism[index_a] in [start_encoding, end_encoding] and organism[index_b] in [start_encoding,
+                                                                                             end_encoding]:
                 return False  # Do not allow swap both genes are delimiters 'Start' or 'End'
-    
-            return True  
-    
+
+            return True
+
         return False  # Do not allow swap if indices are out of bounds
-    
-    
-    
+
     def perform_deletion(self, organism, index):
         mutation_log = None
         if len(organism) > 1:
@@ -701,41 +658,40 @@ class M_E_GA_Base:
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
         start_index, end_index = None, None
-    
+
         # Search backwards from the current index for the nearest start delimiter
         for i in range(index, -1, -1):
             if organism[i] == start_codon:
                 start_index = i
                 break
-    
+
         # If a start delimiter is found, search forward for the nearest end delimiter
         if start_index is not None:
             for i in range(start_index + 1, len(organism)):
                 if organism[i] == end_codon:
                     end_index = i
                     break
-    
+
         # If both start and end delimiters are found, return their indices
         if start_index is not None and end_index is not None:
             return start_index, end_index
-    
+
         # If no valid pair of delimiters is found, return None explicitly
         return None
-
 
     def perform_capture(self, organism, index):
         mutation_log = None
         delimiters = self.find_delimiters(organism, index)
-    
+
         # Proceed only if a valid delimiter pair is found and the segment size meets the criteria
         if delimiters is not None:
             start_index, end_index = delimiters
             segment_size = end_index - start_index - 1  # -1 to exclude delimiters
-    
+
             # Add a condition to check the segment size
             if segment_size > 1:  # or any other minimum size you consider appropriate
                 segment_to_capture = organism[start_index + 1:end_index]
-    
+
                 # Perform the capture operation
                 captured_codon = self.encoding_manager.capture_segment(segment_to_capture)
                 if captured_codon is not False:
@@ -750,12 +706,9 @@ class M_E_GA_Base:
                     }
         if self.logging and self.mutation_logging:
             self.log_mutation(mutation_log)
-    
+
         return organism, index
 
-    
-    
-    
     def perform_open(self, organism, index, no_delimit=False):
         mutation_log = None
         decompressed = self.encoding_manager.open_segment(organism[index], no_delimit=no_delimit)
@@ -801,36 +754,34 @@ class M_E_GA_Base:
         if depth > 0 and last_start_index != -1:
             del organism[last_start_index]  # Remove unpaired 'Start'
 
-        return organism     
-    
-    
+        return organism
+
     def run_algorithm(self):
         self.population = self.initialize_population()
 
         for generation in range(self.max_generations):
             self.current_generation = generation
             self.start_new_generation_logging(self.current_generation)
-            
+
             # Initialize a new log entry for this generation
-            
+
             self.current_generation = generation  # Update current generation
-            
+
             # Initialize a new log entry for this generation
             self.start_new_generation_logging(self.current_generation)
-        
+
             # Callback before fitness evaluation
             if self.before_fitness_evaluation:
                 self.before_fitness_evaluation(self)
 
             self.fitness_scores = self.evaluate_population_fitness()
-            
+
             # Log the current generation's details if generation logging is enabled
             if self.logging and self.generation_logging:
                 self.log_generation(generation, self.fitness_scores, self.population)
-                
+
             average_fitness = sum(self.fitness_scores) / len(self.fitness_scores)
             print(f"Generation {generation}: Average Fitness = {average_fitness}")
-
 
             # Callback after population selection and before new population generation
             if self.after_population_selection:
@@ -845,32 +796,30 @@ class M_E_GA_Base:
             if self.logging and self.individual_logging:
                 self.individual_logging_fitness(generation, self.population, self.fitness_scores)
 
-
             # Optionally: check for convergence or stopping criteria
 
         # Compile final logs including initial configuration and outcomes
         print(self.encoding_manager.encodings)
         if self.logging:
             final_log = {"initial_configuration": {
-        "MUTATION_PROB": self.mutation_prob,
-        "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
-        "OPEN_MUTATION_PROB": self.open_mutation_prob,
-        "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
-        "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
-        "CROSSOVER_PROB": self.crossover_prob,
-        "ELITISM_RATIO": self.elitism_ratio,
-        "BASE_GENE_PROB": self.base_gene_prob,
-        "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
-        "POPULATION_SIZE": self.population_size,
-        "NUM_PARENTS": self.num_parents,
-        "MAX_GENERATIONS": self.max_generations,
-        "DELIMITERS": self.delimiters,
-        "DELIMITER_SPACE": self.delimiter_space,
-        "seed": self.seed,
-        "Fitness_function_data": self.relevant_data
-        },
-    # Include other sections of the final_log as needed
-
+                "MUTATION_PROB": self.mutation_prob,
+                "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
+                "OPEN_MUTATION_PROB": self.open_mutation_prob,
+                "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
+                "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
+                "CROSSOVER_PROB": self.crossover_prob,
+                "ELITISM_RATIO": self.elitism_ratio,
+                "BASE_GENE_PROB": self.base_gene_prob,
+                "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
+                "POPULATION_SIZE": self.population_size,
+                "NUM_PARENTS": self.num_parents,
+                "MAX_GENERATIONS": self.max_generations,
+                "DELIMITERS": self.delimiters,
+                "DELIMITER_SPACE": self.delimiter_space,
+                "seed": self.seed,
+                "Fitness_function_data": self.relevant_data
+            },
+                # Include other sections of the final_log as needed
 
                 "final_population": self.population,
                 "final_fitness_scores": self.fitness_scores,

@@ -7,6 +7,7 @@ Created on Thu Feb 29 15:48:15 2024
 
 import random
 import xxhash
+import functools
 
 class EncodingManager:
     def __init__(self):
@@ -21,8 +22,8 @@ class EncodingManager:
         self.add_gene('End', predefined_id=2)
 
     def generate_hash_key(self, identifier):
-        # Use xxhash to generate a 64-bit hash of the identifier
-        return xxhash.xxh64_intdigest(str(identifier))
+        # Use xxhash's 32-bit version to generate a shorter hash
+        return xxhash.xxh32_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
         # Use predefined_id for default genes or increment gene_counter for new genes
@@ -112,19 +113,19 @@ class EncodingManager:
                 print(f"Encoding gene '{gene}' to hash key {hash_key}.")
     
         return encoded_list  # Return the list of hash keys    
-    
-    
 
-    def decode(self, encoded_list, verbose=False):
+    @functools.lru_cache(maxsize=500)
+    def decode(self, encoded_tuple, verbose=False):
+        # Convert the encoded tuple back to a list for processing
+        stack = list(encoded_tuple)
         decoded_sequence = []
-        stack = encoded_list[:]  # Copy the encoded list to a stack for processing
-    
+
         while stack:
             hash_key = stack.pop(0)  # Pop the first item (hash key) for decoding
-    
+
             if hash_key in self.encodings:
                 value = self.encodings[hash_key]
-    
+
                 if isinstance(value, tuple):  # Handling captured segments
                     if verbose:
                         print(f"Decompressing captured segment with hash key {hash_key}")
@@ -135,12 +136,12 @@ class EncodingManager:
                     decoded_sequence.append(value)
                     if verbose:
                         print(f"Decoding hash key {hash_key} to '{value}'.")
-    
+
             else:
                 decoded_sequence.append("Unknown")
                 if verbose:
                     print(f"Hash key {hash_key} is unknown.")
-    
+
         return decoded_sequence
 
 
@@ -257,17 +258,24 @@ class TestEncodingManager(unittest.TestCase):
         
         # Encode a list of genes, including 'End' as part of the list
         for gene in genes:
-            encoded = self.manager.encode([gene, 'End'], verbose=True)
+            encoded = tuple(self.manager.encode([gene, 'End'], verbose=True))
             decoded = self.manager.decode(encoded, verbose=True)
             # Expected decoded string should include 'End' as a separate element
             expected_decoded_str = gene + ' End'
             decoded_str = ' '.join(decoded)
             self.assertEqual(decoded_str, expected_decoded_str, f"Encoded sequence should decode back to '{expected_decoded_str}'.")
+
     def test_decode_unknown_hash_key(self):
         # Generate a hash key that is likely not in use by adding a unique gene and then incrementing the counter
         self.manager.add_gene('UniqueGene', verbose=False)
         unknown_hash_key = self.manager.gene_counter + 1  # Assuming gene_counter is still accessible in this context
-        decoded = self.manager.decode([unknown_hash_key], verbose=True)
+
+        # Ensure the argument is a tuple
+        encoded = tuple([unknown_hash_key])
+
+        # Call decode with the correct tuple argument
+        decoded = self.manager.decode(encoded, verbose=True)
+
         # Check if 'Unknown' is in the decoded list
         self.assertIn('Unknown', decoded, "Unknown hash key should decode to 'Unknown'.")
 
@@ -280,9 +288,16 @@ class TestEncodingManagerCapturedSegments(unittest.TestCase):
     def test_capture_and_decode(self):
         self.manager.add_gene('A')
         self.manager.add_gene('B')
-        encoded_segment = self.manager.encode('A B', verbose=True)
+
+        # The encode method should return a list of hash keys; ensure it's being called correctly
+        encoded_segment = self.manager.encode(['A', 'B'],
+                                              verbose=True)  # Ensure 'A' and 'B' are in a list if they represent individual genes
+
         captured_codon = self.manager.capture_segment(encoded_segment, verbose=True)
-        decoded_sequence = self.manager.decode([captured_codon], verbose=True)
+
+        # Wrap captured_codon in a list, then convert to tuple for decode
+        decoded_sequence = self.manager.decode(tuple([captured_codon]), verbose=True)
+
         # Join the decoded list to form a string for comparison
         decoded_str = ' '.join(decoded_sequence)
         self.assertEqual(decoded_str, 'A B', "The decoded sequence should match the original segment.")
@@ -291,32 +306,48 @@ class TestEncodingManagerCapturedSegments(unittest.TestCase):
         genes = ['1', '2', '3', '4', '5']
         for gene in genes:
             self.manager.add_gene(gene, verbose=True)
+
         encoded_segment = []
         for gene in genes:
-            encoded_gene = self.manager.encode(gene, verbose=True)
+            # Ensure each gene is passed as a single-element list to encode
+            encoded_gene = self.manager.encode([gene], verbose=True)
             encoded_segment.extend(encoded_gene)
+
+            # Capture the current segment
             captured_codon = self.manager.capture_segment(encoded_segment, verbose=True)
-            decoded_sequence = self.manager.decode([captured_codon], verbose=True)
+
+            # Decode using a tuple containing the captured codon
+            decoded_sequence = self.manager.decode(tuple([captured_codon]), verbose=True)
+
             # Join the decoded list to form a string for comparison
             decoded_str = ' '.join(decoded_sequence)
-            self.assertEqual(decoded_str, ' '.join(genes[:len(encoded_segment)]), f"Decoded sequence should match {' '.join(genes[:len(encoded_segment)])}")
+
+            # The expected decoded string should match the sequence of genes captured so far
+            expected_decoded_str = ' '.join(genes[:len(decoded_sequence)])
+            self.assertEqual(decoded_str, expected_decoded_str, f"Decoded sequence should match {expected_decoded_str}")
 
     def test_duplicate_segment_capture(self):
         self.manager.add_gene('X')
         self.manager.add_gene('Y')
-        # Encode and capture the segment 'X Y' twice
-        encoded_segment_1 = self.manager.encode('X Y', verbose=True)
+
+        # Ensure genes are passed as a list to the encode method
+        encoded_segment_1 = self.manager.encode(['X', 'Y'], verbose=True)
         captured_codon_1 = self.manager.capture_segment(encoded_segment_1, verbose=True)
-        encoded_segment_2 = self.manager.encode('X Y', verbose=True)
+
+        encoded_segment_2 = self.manager.encode(['X', 'Y'], verbose=True)
         captured_codon_2 = self.manager.capture_segment(encoded_segment_2, verbose=True)
+
         # Verify that the same hash key is reused for the duplicate segment
         self.assertEqual(captured_codon_1, captured_codon_2, "Duplicate segments should reuse the same hash key.")
 
-        # Decode and compare to ensure correct encoding and decoding
-        decoded_sequence_1 = self.manager.decode([captured_codon_1], verbose=True)
-        decoded_sequence_2 = self.manager.decode([captured_codon_2], verbose=True)
+        # Convert captured codon to a tuple and decode
+        decoded_sequence_1 = self.manager.decode(tuple([captured_codon_1]), verbose=True)
+        decoded_sequence_2 = self.manager.decode(tuple([captured_codon_2]), verbose=True)
+
+        # Join the decoded list to form a string for comparison
         decoded_str_1 = ' '.join(decoded_sequence_1)
         decoded_str_2 = ' '.join(decoded_sequence_2)
+
         self.assertEqual(decoded_str_1, 'X Y', "The decoded sequence should match the original segment 'X Y'.")
         self.assertEqual(decoded_str_1, decoded_str_2, "Decoded sequences from duplicate captures should be identical.")
 
@@ -330,25 +361,25 @@ class TestEncodingManagerNestedCaptures(unittest.TestCase):
         genes = ['X', 'Y', 'Z', 'W']
         for gene in genes:
             self.manager.add_gene(gene, verbose=True)
-        
-        # Encode and capture the initial segment 'X Y'
-        initial_encoded_segment = self.manager.encode('X Y', verbose=True)
+
+        # Encode and capture the initial segment 'X Y'. Ensure genes are passed as a list to encode.
+        initial_encoded_segment = self.manager.encode(['X', 'Y'], verbose=True)
         initial_capture_codon = self.manager.capture_segment(initial_encoded_segment, verbose=True)
-        
-        # Create a nested segment that includes the hash key of the initial captured segment
-        nested_encoded_segment = [initial_capture_codon] + self.manager.encode('Z W', verbose=True)
-        
+
+        # Encode the next part 'Z W' and create a nested segment that includes the hash key of the initial captured segment
+        next_encoded_segment = self.manager.encode(['Z', 'W'], verbose=True)
+        nested_encoded_segment = [initial_capture_codon] + next_encoded_segment
+
         # Capture the nested segment
         nested_capture_codon = self.manager.capture_segment(nested_encoded_segment, verbose=True)
-        
-        # Decode the nested capture to test if the nested structure is preserved
-        decoded_nested_sequence = self.manager.decode([nested_capture_codon], verbose=True)
-        
+
+        # Decode the nested capture to test if the nested structure is preserved. Ensure captured codon is in a tuple.
+        decoded_nested_sequence = self.manager.decode(tuple([nested_capture_codon]), verbose=True)
+
         # Join the decoded list to form a string for comparison
         decoded_str = ' '.join(decoded_nested_sequence)
         self.assertEqual(decoded_str, 'X Y Z W', "Nested decoded segment should match 'X Y Z W'")
 
-        
 
 class TestOpenSegment(unittest.TestCase):
     def setUp(self):

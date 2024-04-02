@@ -62,7 +62,7 @@ class M_E_GA_Base:
         self.seed = seed
         self.relevant_data = None
 
-        # Seed used for reproducability.
+        # Seed used for reproducibility.
         if seed is not None:
             random.seed(seed)
 
@@ -211,6 +211,7 @@ class M_E_GA_Base:
         return population
 
     def decode_organism(self, encoded_organism, format=False):
+        encoded_organism = tuple(encoded_organism)
         decoded_genes = self.encoding_manager.decode(encoded_organism, verbose=False)
         if format:
             decoded_genes = [gene for gene in decoded_genes if gene not in ['Start', 'End']]
@@ -284,7 +285,7 @@ class M_E_GA_Base:
 
     def evaluate_population_fitness(self):
         num_cpus = os.cpu_count() or 1
-        max_workers = num_cpus * 4
+        max_workers = num_cpus * 6
         self.relevant_data = None  # Initialize at the class level to ensure it's accessible elsewhere
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -816,8 +817,8 @@ class M_E_GA_Base:
                 "MAX_GENERATIONS": self.max_generations,
                 "DELIMITERS": self.delimiters,
                 "DELIMITER_SPACE": self.delimiter_space,
-                "seed": self.seed,
-                "Fitness_function_data": self.relevant_data
+                "seed": self.seed
+
             },
                 # Include other sections of the final_log as needed
 

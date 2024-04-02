@@ -3,8 +3,8 @@ from M_E_GA_Base_V2 import M_E_GA_Base
 import math
 
 GLOBAL_SEED =            None
-num_cycles =              1
-MAX_GENERATIONS =        100
+NUM_CYCLES =              5
+MAX_GENERATIONS =        600
 random.seed(GLOBAL_SEED)
 
 
@@ -30,7 +30,7 @@ CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
 
-NUM_VEHICLES = 2000
+NUM_VEHICLES = 200
 NUM_SUPPLIERS = 6000
 DEPOT_PENALTY = -100
 
@@ -44,7 +44,7 @@ distance_cache = {}
 
 
 def length_penalty(decoded_length, encoded_length):
-    return  -2 * (decoded_length - encoded_length)
+    return -2 * (decoded_length - encoded_length)
 
 
 
@@ -173,8 +173,8 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, vehicles, sup
 
     # Fitness score calculation with penalties
     fitness_score = (1 / (1 + total_cost)) + total_reward
-    penalty = length_penalty(decoded_length, encoded_length)  # Apply length penalty
-    fitness_score -= penalty  # Reduce fitness score by penalty
+    long_penalty = length_penalty(decoded_length, encoded_length)  # Apply length penalty
+    fitness_score = fitness_score - long_penalty  # Reduce fitness score by penalty
 
     update_best_organism(encoded_genome, fitness_score, verbose=True)
     return fitness_score, {}
@@ -259,7 +259,7 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             delimiter_insert_prob=DELIMITER_INSERT_PROB,
             crossover_prob=CROSSOVER_PROB,
             elitism_ratio=ELITISM_RATIO,
-            base_gene_prob=BASE_GENE_PROB + .05,
+            base_gene_prob= .40,
             max_individual_length=MAX_INDIVIDUAL_LENGTH,
             population_size=POPULATION_SIZE,
             num_parents=NUM_PARENTS,
@@ -277,8 +277,7 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             seed=GLOBAL_SEED,
             )
 
-        student_ga.student_phase(instructor_encodings)
-        student_encodings = student_ga.instructor_phase()
+        student_encodings = student_ga.student_phase(instructor_encodings)
 
         nd_learner_ga = ExperimentGA(
             genes=GENES,
@@ -291,7 +290,7 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             delimiter_insert_prob=DELIMITER_INSERT_PROB,
             crossover_prob=CROSSOVER_PROB,
             elitism_ratio=ELITISM_RATIO,
-            base_gene_prob=BASE_GENE_PROB + .20,
+            base_gene_prob=.45,
             max_individual_length=MAX_INDIVIDUAL_LENGTH,
             population_size=POPULATION_SIZE,
             num_parents=NUM_PARENTS,
@@ -324,7 +323,7 @@ def compare_results(instructor_ga, student_ga, control_ga, cycle):
     # Placeholder for demonstration purposes
     print(
         f"Results for Cycle {cycle}:\nInstructor Best Fitness: {max(instructor_ga.fitness_scores)}"
-        f"\nStudent Best Fitness: {max(student_ga.fitness_scores)}\nControl Best Fitness: "
+        f"\nStudent Best Fitness: {max(student_ga.fitness_scores)}\n Nd Learner Best Fitness: "
         f"{max(control_ga.fitness_scores)}")
 
 
@@ -345,4 +344,4 @@ if __name__ == '__main__':
     GENES = list(vehicles.keys()) + list(suppliers.keys())
     experiment_name = input("Your_Experiment_Name: ")
     best_organisms = {}
-    run_experiment(experiment_name, num_cycles, GENES, problem_specific_fitness_function)
+    run_experiment(experiment_name, NUM_CYCLES, GENES, problem_specific_fitness_function)

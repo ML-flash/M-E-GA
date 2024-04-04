@@ -3,36 +3,72 @@ from M_E_GA_Base_V2 import M_E_GA_Base
 import math
 
 GLOBAL_SEED =            None
-NUM_CYCLES =              5
-MAX_GENERATIONS =        600
+NUM_CYCLES =              1
+MAX_GENERATIONS =         200
 random.seed(GLOBAL_SEED)
 
 
-MUTATION_PROB =           0.09
-DELIMITED_MUTATION_PROB = 0.05
-OPEN_MUTATION_PROB =      0.005
-CAPTURE_MUTATION_PROB =   0.001
+MUTATION_PROB =           0.03
+DELIMITED_MUTATION_PROB = 0.03
+OPEN_MUTATION_PROB =      0.007
+CAPTURE_MUTATION_PROB =   0.002
 DELIMITER_INSERT_PROB =   0.004
 CROSSOVER_PROB =          .90
 ELITISM_RATIO =           0.6
-BASE_GENE_PROB =          0.35
+BASE_GENE_PROB =          0.65
 MAX_INDIVIDUAL_LENGTH =   400
-POPULATION_SIZE =         600
-NUM_PARENTS =             100
+POPULATION_SIZE =         700
+NUM_PARENTS =             150
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
 
-LOGGING =                 True
+LOGGING =                 False
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
+#Student Settings
 
-NUM_VEHICLES = 200
+S_MUTATION_PROB =           0.03
+S_DELIMITED_MUTATION_PROB = 0.03
+S_OPEN_MUTATION_PROB =      0.007
+S_CAPTURE_MUTATION_PROB =   0.002
+S_DELIMITER_INSERT_PROB =   0.004
+S_CROSSOVER_PROB =          .90
+S_ELITISM_RATIO =           0.6
+S_BASE_GENE_PROB =          0.55
+S_MAX_INDIVIDUAL_LENGTH =   400
+S_POPULATION_SIZE =         700
+S_NUM_PARENTS =             150
+S_DELIMITER_SPACE =         3
+S_DELIMITERS =              False
+
+# ND Learner settings
+ND_MUTATION_PROB =           0.03
+ND_DELIMITED_MUTATION_PROB = 0.03
+ND_OPEN_MUTATION_PROB =      0.007
+ND_CAPTURE_MUTATION_PROB =   0.002
+ND_DELIMITER_INSERT_PROB =   0.004
+ND_CROSSOVER_PROB =          .90
+ND_ELITISM_RATIO =           0.6
+ND_BASE_GENE_PROB =          0.55
+ND_MAX_INDIVIDUAL_LENGTH =   400
+ND_POPULATION_SIZE =         700
+ND_NUM_PARENTS =             150
+ND_DELIMITER_SPACE =         3
+ND_DELIMITERS =              False
+
+
+
+
+
+NUM_VEHICLES = 2000
 NUM_SUPPLIERS = 6000
-DEPOT_PENALTY = -100
+DEPOT_PENALTY = -10
+COST_LIMIT =  10000
+
 
 
 best_organism = {
@@ -101,10 +137,10 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, vehicles, sup
                                       penalty_per_unit_time=10, penalty_per_unit_demand_excess=20,
                                       resupply_cost=50, base_reset_cost=5, cost_per_unit_distance=0.1,
                                       service_time=1, correct_order_reward=0.5, max_penalty_ratio=0.5,
-                                      depot_return_reward=.1, distance_penalty_factor=0.01, DEPOT_PENALTY=-10):
+                                      depot_return_reward=5, distance_penalty_factor=0.01, DEPOT_PENALTY=-10,
+                                      verbose=False):  # Add verbose flag
     decoded_genome = ga_instance.decode_organism(encoded_genome)
-    encoded_length = len(encoded_genome)
-    decoded_length = len(decoded_genome)
+    depot_penalty_multiplier = 1
     total_cost = 0
     total_reward = 0
     current_location = depot_location
@@ -114,73 +150,97 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, vehicles, sup
 
     last_vehicle = None
     returned_to_depot = False
-    previous_gene_was_s0 = False  # Track consecutive S0s
+    previous_gene_was_s0 = False
 
     for i, gene in enumerate(decoded_genome):
         if gene in ['Start', 'End']:
-            decoded_length -= 1
-            encoded_length -= 1
             continue
 
         if gene == "S0":
-            if previous_gene_was_s0:  # Apply consecutive S0 penalty
-                total_cost += DEPOT_PENALTY
-            previous_gene_was_s0 = True
-
+            if verbose:
+                print(f"Arriving at depot: current total cost {total_cost}, total reward {total_reward}")
+            if previous_gene_was_s0:
+                depot_penalty_multiplier += 1
+                total_cost += DEPOT_PENALTY * depot_penalty_multiplier ** 0.5
+                if verbose:
+                    print(f"Consecutive depot visit penalty applied: {DEPOT_PENALTY * depot_penalty_multiplier ** 0.5}")
+            else:
+                depot_penalty_multiplier = 1
             if last_vehicle:
                 distance_to_depot = calculate_distance_cached(current_location, depot_location)
                 total_cost += distance_to_depot * vehicles[last_vehicle]['cost_per_distance']
+                if verbose:
+                    print(f"Vehicle {last_vehicle} returns to depot, distance: {distance_to_depot}, cost for trip: {distance_to_depot * vehicles[last_vehicle]['cost_per_distance']}")
                 if vehicle_distance[last_vehicle] <= vehicles[last_vehicle]['max_distance']:
-                    total_reward += depot_return_reward * vehicle_load[last_vehicle]  # Reward based on load
+                    total_reward += depot_return_reward * vehicle_load[last_vehicle]
+                    if verbose:
+                        print(f"Reward for returning to depot with load {vehicle_load[last_vehicle]}: {depot_return_reward * vehicle_load[last_vehicle]}")
                 vehicle_load[last_vehicle] = 0
-                vehicle_distance[last_vehicle] = 0  # Reset vehicle distance
+                vehicle_distance[last_vehicle] = 0
                 returned_to_depot = True
             current_location = depot_location
+            previous_gene_was_s0 = True
 
         elif gene in vehicles:
+            if verbose:
+                print(f"Switching to vehicle {gene}")
             previous_gene_was_s0 = False
             if last_vehicle and not returned_to_depot:
                 distance_to_depot = calculate_distance_cached(current_location, depot_location)
-                total_cost += distance_to_depot * vehicles[last_vehicle]['cost_per_distance']
-                if vehicle_distance[last_vehicle] <= vehicles[last_vehicle]['max_distance']:
-                    total_reward += (depot_return_reward * vehicle_load[last_vehicle]) / 2  # Half reward for load
-                    total_reward -= distance_penalty_factor * distance_to_depot  # Penalty for distance
-                vehicle_load[last_vehicle] = 0
-                vehicle_distance[last_vehicle] = 0  # Reset vehicle distance
-
+                distance_excess = distance_to_depot - vehicles[last_vehicle]['max_distance']
+                if distance_excess > 0:
+                    scaled_penalty = distance_excess * vehicles[last_vehicle]['cost_per_distance'] * 0.5
+                    total_cost += scaled_penalty
+                    if verbose:
+                        print(f"Penalty for vehicle {last_vehicle} not returning: {scaled_penalty}")
             last_vehicle = gene
             returned_to_depot = False
             current_location = depot_location
-            vehicle_distance[last_vehicle] = 0  # Initialize for new vehicle
-            vehicle_load[last_vehicle] = 0  # Initialize for new vehicle
+            vehicle_distance[last_vehicle] = 0
+            vehicle_load[last_vehicle] = 0
 
         elif gene in suppliers and last_vehicle:
+            if verbose:
+                print(f"Visiting supplier {gene}")
             previous_gene_was_s0 = False
             supplier = suppliers[gene]
             distance = calculate_distance_cached(current_location, supplier['location'])
-            if vehicle_distance[last_vehicle] + distance <= vehicles[last_vehicle]['max_distance']:  # Check distance limit
+            if vehicle_distance[last_vehicle] + distance <= vehicles[last_vehicle]['max_distance']:
                 vehicle_distance[last_vehicle] += distance
                 if gene not in visited_suppliers:
                     visited_suppliers.add(gene)
                     vehicle_load[last_vehicle] += supplier['demand']
+                    if verbose:
+                        print(f"Loading from supplier {gene}, demand {supplier['demand']}, vehicle load {vehicle_load[last_vehicle]}")
                     if vehicle_load[last_vehicle] > vehicles[last_vehicle]['capacity']:
-                        total_cost += penalty_per_unit_demand_excess * (vehicle_load[last_vehicle] - vehicles[last_vehicle]['capacity'])
-                        vehicle_load[last_vehicle] = vehicles[last_vehicle]['capacity']  # Cap at max capacity
-                total_cost += distance * vehicles[last_vehicle]['cost_per_distance']
+                        penalty = penalty_per_unit_demand_excess * (vehicle_load[last_vehicle] - vehicles[last_vehicle]['capacity'])
+                        total_cost += penalty
+                        if verbose:
+                            print(f"Penalty for exceeding capacity: {penalty}")
+                        vehicle_load[last_vehicle] = vehicles[last_vehicle]['capacity']
                 current_location = supplier['location']
             else:
                 vehicle_load[last_vehicle] = 0  # Exceeded max distance, load set to 0
+                if verbose:
+                    print(f"Vehicle {last_vehicle} exceeded max distance, resetting load to 0")
 
     # Fitness score calculation with penalties
     fitness_score = (1 / (1 + total_cost)) + total_reward
-    long_penalty = length_penalty(decoded_length, encoded_length)  # Apply length penalty
-    fitness_score = fitness_score - long_penalty  # Reduce fitness score by penalty
+    if verbose:
+        print(f"Final fitness score calculation: {fitness_score}, total cost: {total_cost}, total reward: {total_reward}")
+
+    if total_cost > COST_LIMIT:
+        cost_overrun = total_cost - COST_LIMIT
+        scaled_penalty = math.log1p(
+            cost_overrun)  # log1p(x) computes log(1 + x), ensuring a smooth curve and avoiding log(0)
+        fitness_score -= scaled_penalty / 20  # Dividing by 20 to reduce the penalty magnitude
+        if verbose:
+            print(
+                f"Cost exceeds limit by {cost_overrun}, applying scaled penalty: {scaled_penalty / 20},"
+                f" adjusted fitness score: {fitness_score}")
 
     update_best_organism(encoded_genome, fitness_score, verbose=True)
     return fitness_score, {}
-
-
-
 
 
 class ExperimentGA(M_E_GA_Base):
@@ -252,20 +312,20 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             genes=GENES,
             fitness_function=fitness_function,
             after_population_selection=capture_best_organism,
-            mutation_prob=MUTATION_PROB,
-            delimited_mutation_prob=DELIMITED_MUTATION_PROB,
-            open_mutation_prob=OPEN_MUTATION_PROB,
-            capture_mutation_prob=CAPTURE_MUTATION_PROB,
-            delimiter_insert_prob=DELIMITER_INSERT_PROB,
-            crossover_prob=CROSSOVER_PROB,
-            elitism_ratio=ELITISM_RATIO,
-            base_gene_prob= .40,
-            max_individual_length=MAX_INDIVIDUAL_LENGTH,
-            population_size=POPULATION_SIZE,
-            num_parents=NUM_PARENTS,
+            mutation_prob=S_MUTATION_PROB,
+            delimited_mutation_prob=S_DELIMITED_MUTATION_PROB,
+            open_mutation_prob=S_OPEN_MUTATION_PROB,
+            capture_mutation_prob=S_CAPTURE_MUTATION_PROB,
+            delimiter_insert_prob=S_DELIMITER_INSERT_PROB,
+            crossover_prob=S_CROSSOVER_PROB,
+            elitism_ratio=S_ELITISM_RATIO,
+            base_gene_prob=S_BASE_GENE_PROB,
+            max_individual_length=S_MAX_INDIVIDUAL_LENGTH,
+            population_size=S_POPULATION_SIZE,
+            num_parents=S_NUM_PARENTS,
             max_generations=MAX_GENERATIONS,
-            delimiters=DELIMITERS,
-            delimiter_space=DELIMITER_SPACE,
+            delimiters=S_DELIMITERS,
+            delimiter_space=S_DELIMITER_SPACE,
             logging=LOGGING,
             generation_logging=GENERATION_LOGGING,
             mutation_logging=MUTATION_LOGGING,
@@ -283,20 +343,20 @@ def run_experiment(experiment_name, num_cycles, genes, fitness_function):
             genes=GENES,
             fitness_function=fitness_function,
             after_population_selection=capture_best_organism,
-            mutation_prob=MUTATION_PROB,
-            delimited_mutation_prob=DELIMITED_MUTATION_PROB,
-            open_mutation_prob=OPEN_MUTATION_PROB,
-            capture_mutation_prob=CAPTURE_MUTATION_PROB,
-            delimiter_insert_prob=DELIMITER_INSERT_PROB,
-            crossover_prob=CROSSOVER_PROB,
-            elitism_ratio=ELITISM_RATIO,
-            base_gene_prob=.45,
-            max_individual_length=MAX_INDIVIDUAL_LENGTH,
-            population_size=POPULATION_SIZE,
-            num_parents=NUM_PARENTS,
+            mutation_prob=ND_MUTATION_PROB,
+            delimited_mutation_prob=ND_DELIMITED_MUTATION_PROB,
+            open_mutation_prob=ND_OPEN_MUTATION_PROB,
+            capture_mutation_prob=ND_CAPTURE_MUTATION_PROB,
+            delimiter_insert_prob=ND_DELIMITER_INSERT_PROB,
+            crossover_prob=ND_CROSSOVER_PROB,
+            elitism_ratio=ND_ELITISM_RATIO,
+            base_gene_prob=ND_BASE_GENE_PROB,
+            max_individual_length=ND_MAX_INDIVIDUAL_LENGTH,
+            population_size=ND_POPULATION_SIZE,
+            num_parents=ND_NUM_PARENTS,
             max_generations=MAX_GENERATIONS,
-            delimiters=DELIMITERS,
-            delimiter_space=DELIMITER_SPACE,
+            delimiters=ND_DELIMITERS,
+            delimiter_space=ND_DELIMITER_SPACE,
             logging=LOGGING,
             generation_logging=GENERATION_LOGGING,
             mutation_logging=MUTATION_LOGGING,

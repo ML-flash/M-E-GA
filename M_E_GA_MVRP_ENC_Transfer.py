@@ -2,15 +2,15 @@ import random
 from M_E_GA_Base_V2 import M_E_GA_Base
 import math
 
-GLOBAL_SEED =            None
-num_cycles =              1
-MAX_GENERATIONS =        100
+GGLOBAL_SEED =            None
+NUM_CYCLES =              5
+MAX_GENERATIONS =        600
 random.seed(GLOBAL_SEED)
 
 
-MUTATION_PROB =           0.09
-DELIMITED_MUTATION_PROB = 0.05
-OPEN_MUTATION_PROB =      0.005
+MUTATION_PROB =           0.015
+DELIMITED_MUTATION_PROB = 0.015
+OPEN_MUTATION_PROB =      0.007
 CAPTURE_MUTATION_PROB =   0.001
 DELIMITER_INSERT_PROB =   0.004
 CROSSOVER_PROB =          .90
@@ -23,7 +23,7 @@ DELIMITER_SPACE =         3
 DELIMITERS =              False
 
 
-LOGGING =                 False
+LOGGING =                 True
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
@@ -33,6 +33,7 @@ INDIVIDUAL_LOGGING =      True
 NUM_VEHICLES = 2000
 NUM_SUPPLIERS = 6000
 DEPOT_PENALTY = -100
+COST_LIMIT = 1500
 
 
 best_organism = {
@@ -44,7 +45,7 @@ distance_cache = {}
 
 
 def length_penalty(decoded_length, encoded_length):
-    return  -2 * (decoded_length - encoded_length)
+    return -2 * (decoded_length - encoded_length)
 
 
 
@@ -101,115 +102,87 @@ def problem_specific_fitness_function(encoded_genome, ga_instance, vehicles, sup
                                       penalty_per_unit_time=10, penalty_per_unit_demand_excess=20,
                                       resupply_cost=50, base_reset_cost=5, cost_per_unit_distance=0.1,
                                       service_time=1, correct_order_reward=0.5, max_penalty_ratio=0.5,
-                                      depot_return_reward=.1, distance_penalty_factor=0.01, DEPOT_PENALTY=-10):
+                                      depot_return_reward=.1, distance_penalty_factor=0.01, DEPOT_PENALTY=-10,  # Example soft cost limit
+                                      cost_limit_penalty_steepness=0.02):  # Controls penalty growth rate
     decoded_genome = ga_instance.decode_organism(encoded_genome)
-    encoded_length = len(encoded_genome)
-    decoded_length = len(decoded_genome)
     total_cost = 0
     total_reward = 0
     current_location = depot_location
     vehicle_distance = {}
     vehicle_load = {}
     visited_suppliers = set()
+    depot_penalty_multiplier = 1  # Initialize multiplier for consecutive S0 penalty
+    depot_reward_multiplier = 2
 
     last_vehicle = None
     returned_to_depot = False
     previous_gene_was_s0 = False  # Track consecutive S0s
 
+    # Function to calculate the cost overrun penalty
+    def cost_overrun_penalty(overrun):
+        return 1 / (1 + math.exp(-cost_limit_penalty_steepness * (overrun - COST_LIMIT/2)))
+
     for i, gene in enumerate(decoded_genome):
         if gene in ['Start', 'End']:
-            decoded_length -= 1
-            encoded_length -= 1
             continue
 
         if gene == "S0":
-            if previous_gene_was_s0:  # Apply consecutive S0 penalty
-                total_cost += DEPOT_PENALTY
-            previous_gene_was_s0 = True
-
+            if previous_gene_was_s0:
+                total_cost += DEPOT_PENALTY * depot_penalty_multiplier ** 0.5
+                depot_penalty_multiplier += 1
+            else:
+                depot_penalty_multiplier = 1
             if last_vehicle:
                 distance_to_depot = calculate_distance_cached(current_location, depot_location)
                 total_cost += distance_to_depot * vehicles[last_vehicle]['cost_per_distance']
                 if vehicle_distance[last_vehicle] <= vehicles[last_vehicle]['max_distance']:
-                    total_reward += depot_return_reward * vehicle_load[last_vehicle]  # Reward based on load
+                    total_reward += depot_return_reward * (vehicle_load[last_vehicle] * depot_reward_multiplier)
                 vehicle_load[last_vehicle] = 0
-                vehicle_distance[last_vehicle] = 0  # Reset vehicle distance
+                vehicle_distance[last_vehicle] = 0
                 returned_to_depot = True
             current_location = depot_location
+            previous_gene_was_s0 = True
 
         elif gene in vehicles:
             previous_gene_was_s0 = False
             if last_vehicle and not returned_to_depot:
                 distance_to_depot = calculate_distance_cached(current_location, depot_location)
-                total_cost += distance_to_depot * vehicles[last_vehicle]['cost_per_distance']
-                if vehicle_distance[last_vehicle] <= vehicles[last_vehicle]['max_distance']:
-                    total_reward += (depot_return_reward * vehicle_load[last_vehicle]) / 2  # Half reward for load
-                    total_reward -= distance_penalty_factor * distance_to_depot  # Penalty for distance
-                vehicle_load[last_vehicle] = 0
-                vehicle_distance[last_vehicle] = 0  # Reset vehicle distance
-
+                distance_excess = distance_to_depot - vehicles[last_vehicle]['max_distance']
+                if distance_excess > 0:
+                    total_cost += distance_excess * vehicles[last_vehicle]['cost_per_distance'] * 0.5
             last_vehicle = gene
             returned_to_depot = False
             current_location = depot_location
-            vehicle_distance[last_vehicle] = 0  # Initialize for new vehicle
-            vehicle_load[last_vehicle] = 0  # Initialize for new vehicle
+            vehicle_distance[last_vehicle] = 0
+            vehicle_load[last_vehicle] = 0
 
         elif gene in suppliers and last_vehicle:
             previous_gene_was_s0 = False
             supplier = suppliers[gene]
             distance = calculate_distance_cached(current_location, supplier['location'])
-            if vehicle_distance[last_vehicle] + distance <= vehicles[last_vehicle]['max_distance']:  # Check distance limit
+            if vehicle_distance[last_vehicle] + distance <= vehicles[last_vehicle]['max_distance']:
                 vehicle_distance[last_vehicle] += distance
                 if gene not in visited_suppliers:
                     visited_suppliers.add(gene)
                     vehicle_load[last_vehicle] += supplier['demand']
                     if vehicle_load[last_vehicle] > vehicles[last_vehicle]['capacity']:
                         total_cost += penalty_per_unit_demand_excess * (vehicle_load[last_vehicle] - vehicles[last_vehicle]['capacity'])
-                        vehicle_load[last_vehicle] = vehicles[last_vehicle]['capacity']  # Cap at max capacity
-                total_cost += distance * vehicles[last_vehicle]['cost_per_distance']
+                        vehicle_load[last_vehicle] = vehicles[last_vehicle]['capacity']
                 current_location = supplier['location']
-            else:
-                vehicle_load[last_vehicle] = 0  # Exceeded max distance, load set to 0
 
-    # Fitness score calculation with penalties
+    # Apply the soft cost limit penalty if the total cost exceeds the limit
+    if total_cost > COST_LIMIT:
+        cost_overrun = total_cost - COST_LIMIT
+        total_cost += cost_overrun * cost_overrun_penalty(cost_overrun)
+
     fitness_score = (1 / (1 + total_cost)) + total_reward
-    penalty = length_penalty(decoded_length, encoded_length)  # Apply length penalty
-    fitness_score -= penalty  # Reduce fitness score by penalty
+    # Uncomment and define the `length_penalty` function if needed
+    # long_penalty = length_penalty(decoded_length, encoded_length)
+    # fitness_score -= long_penalty
 
-    update_best_organism(encoded_genome, fitness_score, verbose=True)
+    update_best_organism(encoded_genome, fitness_score, verbose=True)  # Update best organism, if applicable
     return fitness_score, {}
 
-
-
-
-
-class ExperimentGA(M_E_GA_Base):
-    def __init__(self, *args, **kwargs):
-        self.vehicles = kwargs.pop('vehicles', None)
-        self.suppliers = kwargs.pop('suppliers', None)
-        super().__init__(*args, **kwargs)
-
-    def fitness_function_wrapper(self, individual):
-        # Use 'self' to pass the current instance to the fitness function
-        return problem_specific_fitness_function(
-            individual, self, self.vehicles, self.suppliers, depot_location=(0, 0),
-            penalty_per_unit_time=10, penalty_per_unit_demand_excess=20, resupply_cost=50,
-            base_reset_cost=5, cost_per_unit_distance=0.1, service_time=1, correct_order_reward=0.5,
-            max_penalty_ratio=0.5, depot_return_reward=0.1, distance_penalty_factor=0.01,
-            DEPOT_PENALTY=DEPOT_PENALTY
-        )
-        # Additional initialization if needed
-
-    def instructor_phase(self):
-        self.run_algorithm()
-        return self.encoding_manager.encodings
-
-    def student_phase(self, instructor_encodings):
-        self.encoding_manager.integrate_uploaded_encodings(instructor_encodings, GENES)
-        self.run_algorithm()
-
-    def control_phase(self):
-        self.run_algorithm()
 
 
 def run_experiment(experiment_name, num_cycles, genes, fitness_function):

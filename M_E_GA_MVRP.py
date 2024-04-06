@@ -1,65 +1,78 @@
 import random
 from M_E_GA_Base_V2 import M_E_GA_Base
-import math
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 GLOBAL_SEED =            None
-NUM_CYCLES =              5
-MAX_GENERATIONS =         500
+NUM_CYCLES =              1
+MAX_GENERATIONS =         800
 random.seed(GLOBAL_SEED)
 
+VOLUME = 5
+NUM_ITEMS = 40
+NUM_GROUPS = 4
 
-MUTATION_PROB =           0.015
-DELIMITED_MUTATION_PROB = 0.012
-OPEN_MUTATION_PROB =      0.005
+
+MUTATION_PROB =           0.01
+DELIMITED_MUTATION_PROB = 0.01
+OPEN_MUTATION_PROB =      0.007
 CAPTURE_MUTATION_PROB =   0.001
 DELIMITER_INSERT_PROB =   0.004
-CROSSOVER_PROB =          .90
+CROSSOVER_PROB =          .70
 ELITISM_RATIO =           0.6
-BASE_GENE_PROB =          0.60
+BASE_GENE_PROB =          0.50
 MAX_INDIVIDUAL_LENGTH =   400
-POPULATION_SIZE =         600
-NUM_PARENTS =             100
+POPULATION_SIZE =         700
+NUM_PARENTS =             150
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
 
-LOGGING =                 False
+LOGGING =                 True
 GENERATION_LOGGING =      True
 MUTATION_LOGGING =        False
 CROSSOVER_LOGGING =       False
 INDIVIDUAL_LOGGING =      True
 
+#Student Settings
 
-NUM_VEHICLES = 2000
-NUM_SUPPLIERS = 6000
-DEPOT_PENALTY = -10
-COST_LIMIT =  10000
+S_MUTATION_PROB =           0.01
+S_DELIMITED_MUTATION_PROB = 0.01
+S_OPEN_MUTATION_PROB =      0.004
+S_CAPTURE_MUTATION_PROB =   0.001
+S_DELIMITER_INSERT_PROB =   0.004
+S_CROSSOVER_PROB =          .90
+S_ELITISM_RATIO =           0.6
+S_BASE_GENE_PROB =          0.50
+S_MAX_INDIVIDUAL_LENGTH =   400
+S_POPULATION_SIZE =         700
+S_NUM_PARENTS =             150
+S_DELIMITER_SPACE =         3
+S_DELIMITERS =              False
+
+# ND Learner settings
+ND_MUTATION_PROB =           0.001
+ND_DELIMITED_MUTATION_PROB = 0.001
+ND_OPEN_MUTATION_PROB =      0.007
+ND_CAPTURE_MUTATION_PROB =   0.001
+ND_DELIMITER_INSERT_PROB =   0.004
+ND_CROSSOVER_PROB =          .90
+ND_ELITISM_RATIO =           0.70
+ND_BASE_GENE_PROB =          0.50
+ND_MAX_INDIVIDUAL_LENGTH =   400
+ND_POPULATION_SIZE =         700
+ND_NUM_PARENTS =             150
+ND_DELIMITER_SPACE =         3
+ND_DELIMITERS =              False
 
 
+GENES = ['R', 'L', 'U', 'D', 'F', 'B']
+directions = {'R': (1, 0, 0), 'L': (-1, 0, 0), 'U': (0, 1, 0), 'D': (0, -1, 0), 'F': (0, 0, 1), 'B': (0, 0, -1)}
 
 best_organism = {
     "genome": None,
     "fitness": float('-inf')  # Start with negative infinity to ensure any valid organism will surpass it
 }
-
-distance_cache = {}
-
-
-def length_penalty(decoded_length, encoded_length):
-    return -2 * (decoded_length - encoded_length)
-
-
-
-def calculate_distance_cached(point1, point2):
-    # Sort points to ensure the cache key is consistent
-    sorted_points = tuple(sorted([point1, point2]))
-    if sorted_points in distance_cache:
-        return distance_cache[sorted_points]
-
-    distance = math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
-    distance_cache[sorted_points] = distance
-    return distance
-
 
 def update_best_organism(current_genome, current_fitness, verbose = False):
     global best_organism
@@ -70,142 +83,133 @@ def update_best_organism(current_genome, current_fitness, verbose = False):
             print(f"New best organism found with fitness {current_fitness}")
 
 
-# Function to generate vehicles
-def generate_vehicles(num_vehicles, capacity_range, max_distance_range, cost_per_distance_range):
-    return {
-        f"V{i}": {
-            "capacity": random.randint(*capacity_range),
-            "max_distance": random.randint(*max_distance_range),
-            "cost_per_distance": random.uniform(*cost_per_distance_range)
+
+def create_items(num_items, num_groups, properties=('size', 'weight', 'density', 'value')):
+    """
+    Generates a list of items, each with its own properties, interactions, and reaction strength.
+
+    Parameters:
+    - num_items: Total number of items to create.
+    - num_groups: Total number of distinct groups items can belong to.
+    - properties: A list of property names that can be affected by interactions.
+
+    Returns:
+    A list of dictionaries, each representing an item with its properties, interactions, and reaction strength.
+    """
+    items = []
+
+    for item_id in range(num_items):
+        item = {
+            'id': item_id,
+            'group': random.randint(0, num_groups - 1),
+            'properties': {
+                'size': random.uniform(0.1, 1.0),
+                'weight': random.uniform(0.1, 1.0),
+                'density': random.uniform(0.1, 1.0),
+                'value': random.uniform(0.1, 1.0),
+            },
+            'reaction_strength': random.uniform(0.5, 1.5),  # Define the reaction strength with a random value
+            'interactions': []  # Initialize an empty list for interactions
         }
-        for i in range(1, num_vehicles + 1)
-    }
 
-# Function to generate suppliers
-def generate_suppliers(num_suppliers, demand_range, time_window_ranges):
-    return {
-        f"S{i}": {
-            "demand": 0,
-            "time_window": (0, 0),
-            "location": (0, 0)
-        } if i == 0 else {
-            "demand": random.randint(*demand_range),
-            "time_window": (random.randint(*random.choice(time_window_ranges)),
-                            random.randint(*random.choice(time_window_ranges))),
-            "location": (random.uniform(0, 100), random.uniform(0, 100))
-        }
-        for i in range(0, num_suppliers + 1)
-    }
+        # Determine the number of groups this item will interact with (up to the total number of groups)
+        num_interactions = random.randint(0, num_groups - 1)
+
+        # Randomly select the groups for interaction, ensuring no repeats and not including the item's own group
+        interacting_groups = random.sample([group for group in range(num_groups) if group != item['group']], num_interactions)
+
+        # Define interactions for each selected group
+        for target_group in interacting_groups:
+            interaction = {
+                'target_group': target_group,
+                'property': random.choice(properties),
+                'direction': random.choice(['increase', 'decrease']),
+                'magnitude': random.uniform(0.1, 0.5),  # Adjust magnitude range as needed
+            }
+            # Add the defined interaction to the item's interactions list
+            item['interactions'].append(interaction)
+
+        # Add the fully defined item to the items list
+        items.append(item)
+
+    return items
 
 
-# Problem-specific fitness function
-def problem_specific_fitness_function(encoded_genome, ga_instance, vehicles, suppliers, depot_location=(0, 0),
-                                      penalty_per_unit_time=10, penalty_per_unit_demand_excess=20,
-                                      resupply_cost=50, base_reset_cost=5, cost_per_unit_distance=0.1,
-                                      service_time=1, correct_order_reward=0.5, max_penalty_ratio=0.5,
-                                      depot_return_reward=5, distance_penalty_factor=0.01, DEPOT_PENALTY=-10,
-                                      verbose=False):  # Add verbose flag
-    decoded_genome = ga_instance.decode_organism(encoded_genome)
-    depot_penalty_multiplier = 1
-    total_cost = 0
-    total_reward = 0
-    current_location = depot_location
-    vehicle_distance = {}
-    vehicle_load = {}
-    visited_suppliers = set()
+def can_add_item_to_sack(item, sack):
+    # Example based on item size and sack's remaining capacity
+    return (sack['current_capacity'] + item['properties']['size']) <= sack['max_capacity']
 
-    last_vehicle = None
-    returned_to_depot = False
-    previous_gene_was_s0 = False
 
-    for i, gene in enumerate(decoded_genome):
-        if gene in ['Start', 'End']:
-            continue
-
-        if gene == "S0":
-            if verbose:
-                print(f"Arriving at depot: current total cost {total_cost}, total reward {total_reward}")
-            if previous_gene_was_s0:
-                depot_penalty_multiplier += 1
-                total_cost += DEPOT_PENALTY * depot_penalty_multiplier ** 0.5
-                if verbose:
-                    print(f"Consecutive depot visit penalty applied: {DEPOT_PENALTY * depot_penalty_multiplier ** 0.5}")
-            else:
-                depot_penalty_multiplier = 1
-            if last_vehicle:
-                distance_to_depot = calculate_distance_cached(current_location, depot_location)
-                total_cost += distance_to_depot * vehicles[last_vehicle]['cost_per_distance']
-                if verbose:
-                    print(f"Vehicle {last_vehicle} returns to depot, distance: {distance_to_depot}, cost for trip: {distance_to_depot * vehicles[last_vehicle]['cost_per_distance']}")
-                if vehicle_distance[last_vehicle] <= vehicles[last_vehicle]['max_distance']:
-                    total_reward += depot_return_reward * vehicle_load[last_vehicle]
-                    if verbose:
-                        print(f"Reward for returning to depot with load {vehicle_load[last_vehicle]}: {depot_return_reward * vehicle_load[last_vehicle]}")
-                vehicle_load[last_vehicle] = 0
-                vehicle_distance[last_vehicle] = 0
-                returned_to_depot = True
-            current_location = depot_location
-            previous_gene_was_s0 = True
-
-        elif gene in vehicles:
-            if verbose:
-                print(f"Switching to vehicle {gene}")
-            previous_gene_was_s0 = False
-            if last_vehicle and not returned_to_depot:
-                distance_to_depot = calculate_distance_cached(current_location, depot_location)
-                distance_excess = distance_to_depot - vehicles[last_vehicle]['max_distance']
-                if distance_excess > 0:
-                    scaled_penalty = distance_excess * vehicles[last_vehicle]['cost_per_distance'] * 0.5
-                    total_cost += scaled_penalty
-                    if verbose:
-                        print(f"Penalty for vehicle {last_vehicle} not returning: {scaled_penalty}")
-            last_vehicle = gene
-            returned_to_depot = False
-            current_location = depot_location
-            vehicle_distance[last_vehicle] = 0
-            vehicle_load[last_vehicle] = 0
-
-        elif gene in suppliers and last_vehicle:
-            if verbose:
-                print(f"Visiting supplier {gene}")
-            previous_gene_was_s0 = False
-            supplier = suppliers[gene]
-            distance = calculate_distance_cached(current_location, supplier['location'])
-            if vehicle_distance[last_vehicle] + distance <= vehicles[last_vehicle]['max_distance']:
-                vehicle_distance[last_vehicle] += distance
-                if gene not in visited_suppliers:
-                    visited_suppliers.add(gene)
-                    vehicle_load[last_vehicle] += supplier['demand']
-                    if verbose:
-                        print(f"Loading from supplier {gene}, demand {supplier['demand']}, vehicle load {vehicle_load[last_vehicle]}")
-                    if vehicle_load[last_vehicle] > vehicles[last_vehicle]['capacity']:
-                        penalty = penalty_per_unit_demand_excess * (vehicle_load[last_vehicle] - vehicles[last_vehicle]['capacity'])
-                        total_cost += penalty
-                        if verbose:
-                            print(f"Penalty for exceeding capacity: {penalty}")
-                        vehicle_load[last_vehicle] = vehicles[last_vehicle]['capacity']
-                current_location = supplier['location']
-            else:
-                vehicle_load[last_vehicle] = 0  # Exceeded max distance, load set to 0
-                if verbose:
-                    print(f"Vehicle {last_vehicle} exceeded max distance, resetting load to 0")
-
-    # Fitness score calculation with penalties
-    fitness_score = (1 / (1 + total_cost)) + total_reward
+def collect_item(item, sack, verbose=False):
+    sack['items'].append(item)  # Add item to sack
+    sack['current_capacity'] += item['properties']['size']  # Update sack's capacity usage
     if verbose:
-        print(f"Final fitness score calculation: {fitness_score}, total cost: {total_cost}, total reward: {total_reward}")
+        print(f"Collected item {item['id']} with size {item['properties']['size']}. Current sack capacity: {sack['current_capacity']}/{sack['max_capacity']}")
+    # Optionally, apply item's interactions immediately upon collection
+    apply_interactions(item, sack['items'], verbose=verbose)
 
-    if total_cost > COST_LIMIT:
-        cost_overrun = total_cost - COST_LIMIT
-        scaled_penalty = math.log1p(
-            cost_overrun)  # log1p(x) computes log(1 + x), ensuring a smooth curve and avoiding log(0)
-        fitness_score -= scaled_penalty / 20  # Dividing by 20 to reduce the penalty magnitude
-        if verbose:
-            print(
-                f"Cost exceeds limit by {cost_overrun}, applying scaled penalty: {scaled_penalty / 20},"
-                f" adjusted fitness score: {fitness_score}")
 
-    update_best_organism(encoded_genome, fitness_score, verbose=True)
+def apply_interactions(new_item, items_in_sack, verbose=False):
+    for interaction in new_item['interactions']:
+        for item in items_in_sack:
+            if item['group'] == interaction['target_group']:
+                affected_property = interaction['property']
+                direction = interaction['direction']
+                magnitude = interaction['magnitude'] * new_item['reaction_strength']
+                change = magnitude if direction == 'increase' else -magnitude
+                old_value = item['properties'][affected_property]
+                item['properties'][affected_property] = max(0, old_value + change)
+                if verbose:
+                    print(f"Applying interaction from item {new_item['id']} to item {item['id']}: {affected_property} {'increased' if change > 0 else 'decreased'} from {old_value} to {item['properties'][affected_property]}")
+
+
+def calculate_sack_value(sack, verbose=False):
+    total_value = sum(item['properties']['value'] for item in sack['items'])
+    # Apply penalties or adjustments based on sack constraints if necessary
+    if verbose:
+        print(f"Total sack value: {total_value}")
+    return total_value
+
+
+def problem_specific_fitness_function(encoded_individual, ga_instance, items, volume_bound=VOLUME, sack_capacity=100, verbose=False):
+    decoded_individual = ga_instance.decode_organism(encoded_individual)
+    fitness_score = 0
+    x, y, z = 0, 0, 0  # Starting position
+    visited_positions = set([(x, y, z)])  # Track visited positions to avoid self-collision
+    sack = {'items': [], 'current_capacity': 0, 'max_capacity': sack_capacity}  # Initialize the sack
+
+    for gene in decoded_individual:
+        if gene in directions:
+            dx, dy, dz = directions[gene]  # Get the direction vector
+            new_pos = (x + dx, y + dy, z + dz)  # Calculate the new position
+
+            # Verbose logging for the move
+            if verbose:
+                print(f"Moving from {(x, y, z)} to {new_pos}")
+
+            # Check if the new position is valid
+            if not (-volume_bound <= new_pos[0] <= volume_bound and
+                    -volume_bound <= new_pos[1] <= volume_bound and
+                    -volume_bound <= new_pos[2] <= volume_bound) or new_pos in visited_positions:
+                if verbose:
+                    print("Invalid move detected. Ending gene processing.")
+                break  # Invalid move: outside volume or revisiting position
+
+            # Check for item collection at the new position
+            for item in items:
+                if 'position' in item and item['position'] == new_pos and can_add_item_to_sack(item, sack):
+                    collect_item(item, sack, verbose=verbose)  # Collect the item if it fits in the sack
+
+            fitness_score += 1  # Reward for each valid move
+            visited_positions.add(new_pos)  # Mark the new position as visited
+            x, y, z = new_pos  # Update the current position
+
+    fitness_score += calculate_sack_value(sack, verbose=verbose)  # Add value of collected items to the fitness score
+
+    # Verbose logging for the final fitness score
+    if verbose:
+        print(f"Final fitness score: {fitness_score}")
+
     return fitness_score, {}
 
 

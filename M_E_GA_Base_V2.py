@@ -285,7 +285,7 @@ class M_E_GA_Base:
 
     def evaluate_population_fitness(self):
         num_cpus = os.cpu_count() or 1
-        max_workers = num_cpus * 6
+        max_workers = num_cpus * 3
         self.relevant_data = None  # Initialize at the class level to ensure it's accessible elsewhere
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:

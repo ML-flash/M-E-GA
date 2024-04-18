@@ -8,26 +8,29 @@ import cellpylib as cpl
 
 GLOBAL_SEED =            None
 NUM_CYCLES =              1
-MAX_GENERATIONS =         100
+MAX_GENERATIONS =         200
 random.seed(GLOBAL_SEED)
 
+STEPS = 100
+RULE = 110
 
-MUTATION_PROB =           0.02
-DELIMITED_MUTATION_PROB = 0.01
-OPEN_MUTATION_PROB =      0.007
-CAPTURE_MUTATION_PROB =   0.001
-DELIMITER_INSERT_PROB =   0.004
+
+MUTATION_PROB =           0.03
+DELIMITED_MUTATION_PROB = 0.03
+OPEN_MUTATION_PROB =      0.008
+CAPTURE_MUTATION_PROB =   0.0006
+DELIMITER_INSERT_PROB =   0.005
 CROSSOVER_PROB =          .70
-ELITISM_RATIO =           0.6
-BASE_GENE_PROB =          0.45
-MAX_INDIVIDUAL_LENGTH =   200
-POPULATION_SIZE =         700
-NUM_PARENTS =             150
+ELITISM_RATIO =           0.06
+BASE_GENE_PROB =          0.80
+MAX_INDIVIDUAL_LENGTH =   80
+POPULATION_SIZE =         500
+NUM_PARENTS =             100
 DELIMITER_SPACE =         3
 DELIMITERS =              False
 
 
-LOGGING =                 False
+LOGGING =                 True
 GENERATION_LOGGING =      False
 MUTATION_LOGGING =        True
 CROSSOVER_LOGGING =       False
@@ -35,32 +38,32 @@ INDIVIDUAL_LOGGING =      False
 
 #Student Settings
 
-S_MUTATION_PROB =           0.01
-S_DELIMITED_MUTATION_PROB = 0.01
-S_OPEN_MUTATION_PROB =      0.0004
-S_CAPTURE_MUTATION_PROB =   0.002
-S_DELIMITER_INSERT_PROB =   0.0004
-S_CROSSOVER_PROB =          .90
-S_ELITISM_RATIO =           0.6
-S_BASE_GENE_PROB =          0.65
+S_MUTATION_PROB =           0.03
+S_DELIMITED_MUTATION_PROB = 0.03
+S_OPEN_MUTATION_PROB =      0.004
+S_CAPTURE_MUTATION_PROB =   0.001
+S_DELIMITER_INSERT_PROB =   0.004
+S_CROSSOVER_PROB =          .70
+S_ELITISM_RATIO =           0.06
+S_BASE_GENE_PROB =          0.50
 S_MAX_INDIVIDUAL_LENGTH =   200
-S_POPULATION_SIZE =         700
-S_NUM_PARENTS =             150
+S_POPULATION_SIZE =         500
+S_NUM_PARENTS =             100
 S_DELIMITER_SPACE =         3
 S_DELIMITERS =              False
 
 # ND Learner settings
-ND_MUTATION_PROB =           0.001
-ND_DELIMITED_MUTATION_PROB = 0.001
+ND_MUTATION_PROB =           0.03
+ND_DELIMITED_MUTATION_PROB = 0.03
 ND_OPEN_MUTATION_PROB =      0.007
-ND_CAPTURE_MUTATION_PROB =   0.001
+ND_CAPTURE_MUTATION_PROB =   0.0008
 ND_DELIMITER_INSERT_PROB =   0.004
-ND_CROSSOVER_PROB =          .90
-ND_ELITISM_RATIO =           0.70
-ND_BASE_GENE_PROB =          0.70
+ND_CROSSOVER_PROB =          .70
+ND_ELITISM_RATIO =           0.06
+ND_BASE_GENE_PROB =          0.50
 ND_MAX_INDIVIDUAL_LENGTH =   200
-ND_POPULATION_SIZE =         700
-ND_NUM_PARENTS =             150
+ND_POPULATION_SIZE =         500
+ND_NUM_PARENTS =             100
 ND_DELIMITER_SPACE =         3
 ND_DELIMITERS =              False
 
@@ -89,7 +92,49 @@ def logic_not(inputs):
     return int(not inputs[0])
 
 
-def simulate_ca_np(rule, initial_config, steps=20, verbose=False):
+def evaluate_and_gate_noise_free(config, rule, logic_func, steps=STEPS, reward=1, penalty_rate=0.05, verbose=False):
+    fitness_score = 0  # Initialize fitness score
+    center_index = len(config) // 2  # Define the center index for the 'and' operation output
+
+    # Loop through all possible input combinations for the 'and' operation
+    for inputs in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+        # Create a test configuration with the current inputs placed at the center
+        test_config = np.array(config)
+        test_config[center_index - 1: center_index + 1] = inputs
+
+        # Run the cellular automaton simulation
+        final_config = simulate_ca_np(rule, test_config, steps, verbose)
+
+        # Determine the expected result from the 'and' operation
+        expected = logic_func(inputs)
+        noise_counter = 0  # Reset the noise counter for each set of inputs
+
+        # Evaluate each cell in the final configuration
+        for idx, cell in enumerate(final_config[-1]):
+            if cell == expected:
+                if idx == center_index:
+                    # Reward for correct output at the center cell
+                    if verbose and cell == expected:
+                        print(f"Correct output for {inputs} at center.")
+                    fitness_score += reward
+                else:
+                    # Apply a distance-based noise penalty
+                    distance = abs(center_index - idx)
+                    noise_penalty = penalty_rate / (distance + 1)  # Adding 1 to prevent division by zero
+                    fitness_score -= noise_penalty
+                    noise_counter += noise_penalty  # Track total noise penalty for verbose output
+
+        if verbose:
+            print(f"Input {inputs}: Applied noise penalty {noise_counter}, Current fitness score: {fitness_score}")
+
+    # Normalize the fitness score and ensure it is not negative
+    fitness_score = max(0, fitness_score) / 4
+    return fitness_score
+
+
+
+
+def simulate_ca_np(rule, initial_config, steps=STEPS, verbose=False):
     config = np.array(initial_config, dtype=int)
     result_matrix = np.zeros((steps + 1, len(config)), dtype=int)
     result_matrix[0] = config
@@ -113,7 +158,7 @@ def simulate_ca_np(rule, initial_config, steps=20, verbose=False):
     return result_matrix
 
 
-def evaluate_logic_operation_np(config, rule, logic_funcs, output_indices, lane_width=3, steps=80, penalty_rate=0.01, verbose=False):
+def evaluate_logic_operation_np(config, rule, logic_funcs, output_indices, lane_width=3, steps=STEPS, penalty_rate=0.01, verbose=False):
     total_correct = 0
     penalties = 0
     input_combinations = [(0, 0), (0, 1), (1, 0), (1, 1)]
@@ -140,7 +185,7 @@ def evaluate_logic_operation_np(config, rule, logic_funcs, output_indices, lane_
             end_idx = min(len(final_config[-1]), idx + lane_width + 1)
             expected_state = 1 - result
             lane_noise = np.sum(final_config[-1][start_idx:end_idx] != expected_state) - (final_config[-1][idx] != expected_state)
-            penalties += lane_noise
+            penalties += (lane_noise * 2)
             if verbose and lane_noise > 0:
                 print(f"Noise detected near output index {idx} for input ({inputs}).")
 
@@ -148,31 +193,17 @@ def evaluate_logic_operation_np(config, rule, logic_funcs, output_indices, lane_
     fitness_score = correct_ratio - (penalties * penalty_rate)
     return max(0, fitness_score)
 
-def problem_specific_fitness_function(encoded_individual, ga_instance, required_length=200, verbose=False):
+def problem_specific_fitness_function(encoded_individual, ga_instance, required_length=MAX_INDIVIDUAL_LENGTH, verbose=False):
     decoded_individual = ga_instance.decode_organism(encoded_individual, format=True)
     decoded_individual = np.array([int(gene) for gene in decoded_individual], dtype=int)
 
-    # Calculate initial length of the individual
-    original_length = len(decoded_individual)
+    if len(decoded_individual) < required_length:
+        decoded_individual = np.pad(decoded_individual, (0, required_length - len(decoded_individual)), 'constant')
 
-    # Adjust the length of the individual
-    if original_length < required_length:
-        decoded_individual = np.pad(decoded_individual, (0, required_length - original_length), 'constant')
-    elif original_length > required_length:
-        # Optionally, you could trim the individual to required length if it exceeds, or let it be and penalize based on excess length
-        # decoded_individual = decoded_individual[:required_length]
-        pass
+    # Evaluate using the new noise-free and gate focus function
+    fitness_score = evaluate_and_gate_noise_free(decoded_individual, RULE, logic_and, verbose=verbose)
 
-    # Calculate the penalty for exceeding the required length
-    excess_length_penalty = max(0, original_length - required_length) * 0.005  # Example penalty rate per excess gene
-
-    gate_positions = [required_length // 2, required_length // 2 - 7, required_length // 2 + 7]
-    fitness_score = evaluate_logic_operation_np(decoded_individual, 110, [logic_and, logic_or, logic_not], gate_positions, verbose=verbose)
-
-    # Subtract penalties from the fitness score
-    fitness_score -= excess_length_penalty
-
-    update_best_organism(encoded_individual, fitness_score, verbose=True)
+    update_best_organism(encoded_individual, fitness_score, verbose = True)
     return max(0, fitness_score), {}
 
 # Gene set and configuration for the GA

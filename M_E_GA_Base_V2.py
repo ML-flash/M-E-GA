@@ -62,6 +62,7 @@ class M_E_GA_Base:
         self.seed = seed
         self.relevant_data = None
 
+
         # Seed used for reproducibility.
         if seed is not None:
             random.seed(seed)
@@ -284,34 +285,15 @@ class M_E_GA_Base:
         return gene_key
 
     def evaluate_population_fitness(self):
-        num_cpus = os.cpu_count() or 1
-        max_workers = num_cpus * 3
-        self.relevant_data = None  # Initialize at the class level to ensure it's accessible elsewhere
+        """Evaluate the fitness of the entire population."""
+        if self.before_fitness_evaluation:
+            self.before_fitness_evaluation(self)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-            if hasattr(self, 'fitness_function_wrapper'):
-                for ind in self.population:
-                    # Submitting each individual evaluation as a separate future task
-                    futures.append(executor.submit(self.fitness_function_wrapper, ind))
-            else:
-                for ind in self.population:
-                    # Submitting each individual evaluation as a separate future task
-                    futures.append(executor.submit(self.fitness_function, ind, self))
+        self.fitness_scores = self.fitness_evaluator.evaluate(self.population, self)
 
-            # Initialize an empty list to store fitness scores
-            self.fitness_scores = []
+        if self.after_population_selection:
+            self.after_population_selection(self)
 
-            # Processing futures as they complete
-            for future in concurrent.futures.as_completed(futures):
-                fitness_score, data = future.result()  # Expecting the function to return a tuple
-                self.fitness_scores.append(fitness_score)
-
-                # Store the relevant data if it hasn't been stored yet
-                if self.relevant_data is None:
-                    self.relevant_data = data
-
-        # The function now returns just the fitness scores, as the relevant data is stored in a class attribute
         return self.fitness_scores
 
     # Crossover functions
@@ -775,7 +757,7 @@ class M_E_GA_Base:
             if self.before_fitness_evaluation:
                 self.before_fitness_evaluation(self)
 
-            self.fitness_scores = self.evaluate_population_fitness()
+            self.fitness_scores = [self.fitness_function(individual, self) for individual in self.population]
 
             # Log the current generation's details if generation logging is enabled
             if self.logging and self.generation_logging:

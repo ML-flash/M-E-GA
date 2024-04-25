@@ -25,7 +25,7 @@ class M_E_GA_Base:
                  crossover_logging=False, individual_logging=False,
                  experiment_name="", encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
-                 before_generation_finalize=None, **kwargs):
+                 before_generation_finalize=None, capture_gene_prob=0, **kwargs):  # Added capture_gene_prob here
         # Directly use the provided genes list for the encoding manager without assuming a specific structure like 'gene['id']'
         self.genes = genes
         self.fitness_function = fitness_function
@@ -61,13 +61,13 @@ class M_E_GA_Base:
         self.individual_logging = individual_logging
         self.seed = seed
         self.relevant_data = None
-
+        self.capture_gene_prob = capture_gene_prob
 
         # Seed used for reproducibility.
         if seed is not None:
             random.seed(seed)
 
-            # Integrate encodings if provided, and add genes to the encoding manager
+        # Integrate encodings if provided, and add genes to the encoding manager
         if encodings:
             self.encoding_manager.integrate_uploaded_encodings(encodings, self.genes)
         else:
@@ -260,6 +260,8 @@ class M_E_GA_Base:
                 f"Unmatched 'Start' found at index {unmatched_start} in context '{context}'. Decoded organism: {decoded_organism}")
         return organism
 
+    import random
+
     def select_gene(self, verbose=False):
         # Decide whether to select a base gene or a captured codon
         if random.random() < self.base_gene_prob or not self.encoding_manager.captured_segments:
@@ -272,11 +274,14 @@ class M_E_GA_Base:
                 # If 'Start' or 'End' is randomly selected, choose another gene
                 return self.select_gene(verbose)
         else:
-            # Select a captured codon
-            captured_codon_key = random.choice(
-                list(self.encoding_manager.captured_segments.keys()))  # Choose a random captured codon key
-            gene_key = self.encoding_manager.captured_segments[
-                captured_codon_key]  # Find the corresponding gene key for the captured segment
+            # Select a captured codon with a weighted probability that favors newer genes
+            captured_codon_keys = list(self.encoding_manager.captured_segments.keys())
+            total_captured = len(captured_codon_keys)
+            # Generate weights that decrease exponentially from newer to older genes
+            weights = [self.capture_gene_prob ** (total_captured - i - 1) for i in range(total_captured)]
+            normalized_weights = [weight / sum(weights) for weight in weights]  # Normalize the weights
+            captured_codon_key = random.choices(captured_codon_keys, weights=normalized_weights, k=1)[0]
+            gene_key = self.encoding_manager.captured_segments[captured_codon_key]
             gene_type = "Captured Segment"
 
         if verbose:

@@ -1,16 +1,17 @@
 import random
 from M_E_GA_Base_V2 import M_E_GA_Base
 
+
 # Global settings and constants
 GLOBAL_SEED = None
 NUM_CYCLES = 1
-MAX_GENERATIONS = 100
+MAX_GENERATIONS = 200
 random.seed(GLOBAL_SEED)
 
 # Genetic Algorithm Constants
-MAX_LENGTH = 1000
+MAX_LENGTH = 1500
 GENES = ['0', '1']
-MAX_INDIVIDUAL_LENGTH = 50
+MAX_INDIVIDUAL_LENGTH = 100
 
 # Common configuration dictionary for GA phases
 common_config = {
@@ -18,7 +19,7 @@ common_config = {
     'delimiters': False,
     'delimiter_space': 3,
     'logging': False,
-    'generation_logging': True,
+    'generation_logging': False,
     'mutation_logging': False,
     'crossover_logging': False,
     'individual_logging': True
@@ -27,40 +28,43 @@ common_config = {
 # Phase specific settings
 phase_settings = {
     "instructor": {
-        'mutation_prob': 0.01,
+        'mutation_prob': 0.02,
         'delimited_mutation_prob': 0.01,
         'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.003,
+        'capture_mutation_prob': 0.002,
         'delimiter_insert_prob': 0.004,
         'crossover_prob': 0.45,
         'elitism_ratio': 0.6,
         'base_gene_prob': 0.45,
+        'capture_gene_prob': 0.15,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "student": {
-        'mutation_prob': 0.01,
+        'mutation_prob': 0.002,
         'delimited_mutation_prob': 0.01,
         'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.003,
+        'capture_mutation_prob': 0.002,
         'delimiter_insert_prob': 0.004,
         'crossover_prob': 0.50,
         'elitism_ratio': 0.6,
         'base_gene_prob': 0.45,
+        'capture_gene_prob': 0.15,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "nd_learner": {
-        'mutation_prob': 0.01,
+        'mutation_prob': 0.02,
         'delimited_mutation_prob': 0.01,
         'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.003,
+        'capture_mutation_prob': 0.002,
         'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.45,
-        'elitism_ratio': 0.70,
-        'base_gene_prob': 0.50,
+        'crossover_prob': 0.50,
+        'elitism_ratio': 0.6,
+        'base_gene_prob': 0.45,
+        'capture_gene_prob': 0.15,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
@@ -85,8 +89,9 @@ def update_best_organism(current_genome, current_fitness, verbose=False):
 def leading_ones_fitness_function(encoded_individual, ga_instance):
     decoded_individual = ga_instance.decode_organism(encoded_individual)
     fitness_score = sum(1 ** i if gene == '1' else 0 for i, gene in enumerate(decoded_individual))
-    penalty = (1.05 ** (MAX_LENGTH - len(decoded_individual)) if len(decoded_individual) < MAX_LENGTH else (
+    penalty = (1.008 ** (MAX_LENGTH - len(decoded_individual)) if len(decoded_individual) < MAX_LENGTH else (
                 len(decoded_individual) - MAX_LENGTH))
+    update_best_organism(encoded_individual, fitness_score, verbose=True)
     return fitness_score - penalty
 
 

@@ -1,0 +1,176 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil Calibri;}{\f2\fnil\fcharset1 Cambria Math;}{\f3\fnil\fcharset0 Cambria Math;}{\f4\fnil Cambria Math;}}
+{\*\generator Riched20 10.0.22621}{\*\mmathPr\mmathFont2\mwrapIndent1440 }\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\b\f0\fs22\lang9 Definitions\par
+\b0\par
+1. Genes: Basic elements represented as unique strings or symbols.\par
+2. Encodings: A mapping mechanism that associates genes with unique hash keys generated through a hashing function.\par
+3. Captured Segments: Subsets of genes that are grouped together and treated as a single entity in the encoding and decoding process.\par
+4. Start and End Delimiters: Special genes used to mark the boundaries of captured segments within the encoding structure.\par
+\par
+\b Mathematical Formalization\par
+\b0\par
+\b Encodings\b0\par
+\par
+Let G = \{ g\f1\u8321?, g\u8322?, ..., g\u8345? \} be a set of genes. Each gene g is associated with a unique hash key k through a function h:\par
+h: G \f2\u8594?\f0  K\par
+where K is the set of all possible hash keys.\par
+\par
+The hash key generation uses the xxhash function, ensuring a unique and consistent mapping:\par
+k = xxhash(g)\par
+\par
+\b Start and End Delimiters\par
+\b0\par
+Two special genes, "Start" and "End", are used to demarcate the boundaries of captured segments. These are predefined and mapped to unique identifiers:\par
+h("Start") = k\f2\u8347?\f1\par
+h("End") = k\f2\u8337?\f1\par
+\par
+\b Captured Segments\par
+\b0\par
+A captured segment S is defined as a tuple of genes:\par
+S = (g\f0\u7522?\f2\u8321?\f1 , g\f0\u7522?\f2\u8322?\f1 , ..., g\f0\u7522?\f2\u8344?\f1 )\par
+Each segment S is also associated with a unique hash key k\f2\u8347?\f1  obtained similarly through the hashing function. This key k\f2\u8347?\f1  serves as a reference in the encodings map.\par
+\par
+h(S) = k\f2\u8347?\f1\par
+\par
+\b Encoding and Decoding Functions\b0\par
+\par
+Encoding function E maps a sequence of genes to a sequence of hash keys:\par
+E(g\f2\u8321?\f1 , g\f2\u8322?\f1 , ..., g\f2\u8345?\f1 ) = (h(g\f2\u8321?\f1 ), h(g\f2\u8322?\f1 ), ..., h(g\f2\u8345?\f1 ))\par
+\par
+Decoding function D reverses the process, mapping a sequence of hash keys back to the corresponding gene sequence:\par
+D(k\f2\u8321?\f1 , k\f2\u8322?\f1 , ..., k\f2\u8345?\f1 ) = (h\f2\u8315?\f0\'b9(k\f2\u8321?\f1 ), h\f2\u8315?\f0\'b9(k\f2\u8322?\f1 ), ..., h\f2\u8315?\f0\'b9(k\f2\u8345?\f1 ))\par
+\par
+\b Integration and Segmentation\b0\par
+\par
+During integration of external encoding data or when modifying the gene pool, the system incorporates and validates new genes and captured segments against existing keys. If new, they are added; if duplicates or conflicts arise, the system manages these based on predefined logic.\par
+\par
+\b Operations\par
+\b0\par
+- Add Gene: Addition of a new gene involves generating a hash key and updating the mappings.\par
+- Capture Segment: Grouping a series of genes into a segment and assigning it a unique identifier.\par
+- Open Segment: Decompressing a captured segment, potentially including the application of start and end delimiters unless specified not to do so.\par
+\par
+\b Usage in Genetic Algorithms\par
+\b0\par
+In the context of a genetic algorithm, these encodings facilitate complex manipulations of genetic material, allowing for advanced operations such as crossover and mutation at a more abstract level, where entire segments of genetic information can be operated upon as units, enhancing feature extraction and transfer learning capabilities through this mutable encoding system.\par
+\par
+\b Definitions\f3  \f1 and\f3  \f1 Initialization\par
+\b0\par
+\f3 - \f1 Let\f3  \f1 P\f3  \f1 represent\f3  \f1 the\f3  \f1 population\f3  \f1 of\f3  \f1 organisms\f3 , \f1 where\f3  \f1 each\f3  \f1 organism\f3  \f1 is\f3  \f1 a\f3  \f1 sequence\f3  \f1 of\f3  \f1 genes\f3  \f1 encoded\f3  \f1 as\f3  \f1 hash\f3  \f1 keys\f3 .\f1\par
+\f3 - \f1 Let\f3  \f1 f\f3  \f1 denote\f3  \f1 the\f3  \f1 fitness\f3  \f1 function\f3 , \f1 f\f3 : \f1 G\f4\u8319?\f3  \f2\u8594?\f3  \f2\u8477?\f3 , \f0 mapping\f3  \f0 a\f3  \f0 sequence\f3  \f0 of\f3  \f0 genes\f3  (\f0 an\f3  \f0 organism\f3 ) \f0 to\f3  \f0 a\f3  \f0 real\f3  \f0 number\f3  \f0 indicating\f3  \f0 its\f3  \f0 fitness\f3 .\f0\par
+\par
+\b Genetic\f3  \f0 Algorithm\f3  \f0 Processes\par
+\b0\par
+\b Selection\par
+\b0\par
+Elitism\f3 :\f0\par
+P\f3 _\f0 elite\f3  = \f0 select\f3 _\f0 top\f3 (\f0 P\f3 , \f0 elitism\f3 _\f0 ratio\f3 )\f0\par
+where\f3  \f0 select\f3 _\f0 top\f3  \f0 selects\f3  \f0 the\f3  \f0 top\f3 -\f0 performing\f3  \f0 individuals\f3  \f0 based\f3  \f0 on\f3  \f0 fitness\f3 , \f0 determined\f3  \f0 by\f3  \f0 the\f3  \f0 parameter\f3  \f0 elitism\f3 _\f0 ratio\f3 .\f0\par
+\par
+Parent\f3  \f0 Selection\f3 :\f0\par
+P\f3 _\f0 parents\f3  = \f0 tournament\f3 _\f0 select\f3 (\f0 P\f3 , \f0 num\f3 _\f0 parents\f3 )\f0\par
+where\f3  \f0 tournament\f3 _\f0 select\f3  \f0 picks\f3  \f0 parents\f3  \f0 based\f3  \f0 on\f3  \f0 a\f3  \f0 tournament\f3  \f0 selection\f3  \f0 process\f3 .\f0\par
+\par
+\b Crossover\par
+\b0\par
+Single\f3 -\f0 Point\f3  \f0 Crossover\f3 :\f0\par
+\f3 (\f0 O\f4\u8321?\f3 , \f0 O\f4\u8322?\f3 ) = \f0 crossover\f3 (\f0 P\f4\u8321?\f3 , \f0 P\f4\u8322?\f3 )\f0\par
+where\f3  \f0 P\f4\u8321?\f3  \f0 and\f3  \f0 P\f4\u8322?\f3  \f0 are\f3  \f0 parent\f3  \f0 organisms\f3  \f0 and\f3  \f0 O\f4\u8321?\f3 , \f0 O\f4\u8322?\f3  \f0 are\f3  \f0 the\f3  \f0 offspring\f3  \f0 produced\f3 . \f0 The\f3  \f0 crossover\f3  \f0 point\f3  \f0 is\f3  \f0 randomly\f3  \f0 selected\f3 , \f0 except\f3  \f0 within\f3  \f0 delimited\f3  \f0 segments\f3  \f0 unless\f3  \f0 explicitly\f3  \f0 allowed\f3 .\f0\par
+\par
+\b Mutation\par
+\b0\par
+Mutation\f3  \f0 Types\f3  \f0 include\f3  \f0 insertion\f3 , \f0 deletion\f3 , \f0 point\f3  \f0 mutation\f3 , \f0 and\f3  \f0 special\f3  \f0 mutations\f3  \f0 within\f3  \f0 delimited\f3  \f0 segments\f3  (\f0 capture\f3  \f0 and\f3  \f0 open\f3  \f0 mutations\f3 ).\f0\par
+O'\f3  = \f0 mutate\f3 (\f0 O\f3 , \f0 mutation\f3 _\f0 prob\f3 , \f0 mutation\f3 _\f0 types\f3 )\f0\par
+where\f3  \f0 O'\f3  \f0 is\f3  \f0 the\f3  \f0 mutated\f3  \f0 organism\f3  \f0 and\f3  \f0 mutation\f3 _\f0 types\f3  \f0 are\f3  \f0 context\f3 -\f0 dependent\f3  \f0 based\f3  \f0 on\f3  \f0 the\f3  \f0 presence\f3  \f0 of\f3  \f0 special\f3  \f0 markers\f3  \f0 like\f3  \f0 start\f3  \f0 and\f3  \f0 end\f3  \f0 delimiters\f3 .\f0\par
+\par
+\b Fitness\f3  \f0 Evaluation\par
+\b0\par
+The\f3  \f0 fitness\f3  \f0 of\f3  \f0 each\f3  \f0 organism\f3  \f0 in\f3  \f0 the\f3  \f0 population\f3  \f0 is\f3  \f0 evaluated\f3  \f0 using\f3 :\f0\par
+fitness\f3 _\f0 scores\f3  = \f0 f\f3 (\f0 P\f3 )\f0\par
+where\f3  \f0 f\f3  \f0 is\f3  \f0 applied\f3  \f0 to\f3  \f0 each\f3  \f0 organism\f3  \f0 in\f3  \f0 the\f3  \f0 population\f3 .\f0\par
+\par
+\b Algorithm\f3  \f0 Execution\f3  \f0 Flow\par
+\b0\par
+Initialization\f3 : \f0 Set\f3  \f0 up\f3  \f0 an\f3  \f0 initial\f3  \f0 population\f3  \f0 of\f3  \f0 encoded\f3  \f0 organisms\f3 .\f0\par
+Generational\f3  \f0 Loop\f3 :\f0\par
+\f3     \f0 Evaluate\f3  \f0 fitness\f3  \f0 of\f3  \f0 the\f3  \f0 current\f3  \f0 population\f3 .\f0\par
+\f3     \f0 Select\f3  \f0 the\f3  \f0 elite\f3  \f0 to\f3  \f0 carry\f3  \f0 forward\f3  \f0 to\f3  \f0 the\f3  \f0 next\f3  \f0 generation\f3 .\f0\par
+\f3     \f0 Select\f3  \f0 parents\f3  \f0 and\f3  \f0 generate\f3  \f0 offspring\f3  \f0 via\f3  \f0 crossover\f3  \f0 and\f3  \f0 mutation\f3 .\f0\par
+\f3     \f0 Evaluate\f3  \f0 new\f3  \f0 population's\f3  \f0 fitness\f3  \f0 and\f3  \f0 repeat\f3  \f0 until\f3  \f0 the\f3  \f0 termination\f3  \f0 condition\f3  (\f0 e\f3 .\f0 g\f3 ., \f0 max\f3  \f0 generations\f3 ) \f0 is\f3  \f0 met\f3 .\f0\par
+\par
+\b Mathematical\f3  \f0 Formalization\f3  \f0 of\f3  \f0 Mutable\f3  \f0 Encoding\f3  \f0 Operations\b0\par
+\par
+\b Encode\f3  \f0 and\f3  \f0 Decode\par
+\b0 E\f3 (\f0 g\f4\u8321?\f3 , \f0 g\f4\u8322?\f3 , ..., \f0 g\f4\u8345?\f3 ) = (\f0 h\f3 (\f0 g\f4\u8321?\f3 ), \f0 h\f3 (\f0 g\f4\u8322?\f3 ), ..., \f0 h\f3 (\f0 g\f4\u8345?\f3 ))\f0\par
+D\f3 (\f0 k\f4\u8321?\f3 , \f0 k\f4\u8322?\f3 , ..., \f0 k\f4\u8345?\f3 ) = (\f0 h\f4\u8315?\f0\'b9\f3 (\f0 k\f4\u8321?\f3 ), \f0 h\f4\u8315?\f0\'b9\f3 (\f0 k\f4\u8322?\f3 ), ..., \f0 h\f4\u8315?\f0\'b9\f3 (\f0 k\f4\u8345?\f3 ))\f0\par
+where\f3  \f0 h\f3  \f0 is\f3  \f0 the\f3  \f0 hashing\f3  \f0 function\f3  \f0 mapping\f3  \f0 genes\f3  \f0 to\f3  \f0 their\f3  \f0 hash\f3  \f0 keys\f3  \f0 and\f3  \f0 h\f4\u8315?\f0\'b9\f3  \f0 is\f3  \f0 the\f3  \f0 inverse\f3  \f0 mapping\f3  \f0 hash\f3  \f0 keys\f3  \f0 back\f3  \f0 to\f3  \f0 genes\f3 .\f0\par
+\par
+\b Capture\f3  \f0 Segment\b0\par
+\f3 - \f0 Segments\f3  \f0 of\f3  \f0 genes\f3  \f0 are\f3  \f0 captured\f3  \f0 and\f3  \f0 encoded\f3  \f0 as\f3  \f0 a\f3  \f0 single\f3  \f0 unit\f3 , \f0 which\f3  \f0 can\f3  \f0 later\f3  \f0 be\f3  \f0 decoded\f3  \f0 or\f3  \f0 manipulated\f3  \f0 as\f3  \f0 a\f3  \f0 group\f3 .\f0\par
+\par
+\b Delimited\f3  \f0 Operations\b0\par
+\f3 - \f0 Operations\f3  \f0 within\f3  \f0 segments\f3  \f0 marked\f3  \f0 by\f3  \f0 start\f3  \f0 and\f3  \f0 end\f3  \f0 delimiters\f3  \f0 are\f3  \f0 handled\f3  \f0 specially\f3 , \f0 such\f3  \f0 as\f3  \f0 not\f3  \f0 allowing\f3  \f0 crossover\f3  \f0 points\f3  \f0 within\f3  \f0 these\f3  \f0 segments\f3  \f0 unless\f3  \f0 specified\f3 .\f0\par
+\par
+This\f3  \f0 mathematical\f3  \f0 formalization\f3  \f0 captures\f3  \f0 the\f3  \f0 essential\f3  \f0 functionality\f3  \f0 of\f3  \f0 the\f3  \f0 M\f3 _\f0 E\f3 _\f0 GA\f3 _\f0 Base\f3  \f0 class\f3 , \f0 focusing\f3  \f0 on\f3  \f0 the\f3  \f0 integration\f3  \f0 of\f3  \f0 mutable\f3  \f0 encoding\f3  \f0 within\f3  \f0 a\f3  \f0 genetic\f3  \f0 algorithm\f3  \f0 framework\f3 , \f0 optimizing\f3  \f0 genetic\f3  \f0 operations\f3  \f0 based\f3  \f0 on\f3  \f0 encoded\f3  \f0 representations\f3 .\par
+\par
+\b Mutations\b0\par
+\par
+\b Definitions\par
+\b0 Base Genes (G): Fundamental units of genetic material, each represented by a unique string or symbol, excluding special delimiters.\par
+\par
+Captured Codons (C): Encoded segments of base genes that have been previously delimited and are treated as individual units during the genetic algorithm process.\par
+\par
+Organism (O): A sequence of genes, which may include base genes, captured codons, and delimiters, representing an individual in the population.\par
+\par
+Delimited Region (D): A section within an organism explicitly marked by start and end delimiters, enclosing one or more genes or codons. This region can be treated as a segment for specialized mutations or operations.\par
+\par
+\b Mathematical Formalization\par
+Mutation Probabilities and Selection Function\par
+\b0 Define mutation probabilities and a selection function distinguishing between base genes, captured codons, and handling within delimited regions.\par
+\par
+\b Mutation Probabilities\b0\par
+p_mutation: Probability of any mutation occurring.\par
+p_insertion: Probability of an insertion mutation.\par
+p_deletion: Probability of a deletion mutation.\par
+p_point: Probability of a point mutation.\par
+p_swap: Probability of a swap mutation.\par
+p_capture: Probability of capturing a new segment within a delimited region.\par
+p_open: Probability of opening a captured segment.\par
+\par
+\b Selection Function\b0\par
+The selection function S(O) chooses between selecting a base gene or a captured codon based on their available proportions and defined probabilities:\par
+\par
+S(O) =\par
+\{\par
+g_i if X < p_base, g_i \f2\u8712? G\par
+c_j if X \u8805? p_base, c_j \u8712? C\par
+\}\par
+\par
+\b Where\b0\par
+\par
+X is a random variable uniformly distributed over [0, 1].\par
+p_base is the probability of choosing a base gene over a captured codon.\par
+Mutation Operations:\par
+Mutations are applied based on the context (delimited or undelimited regions) and the type of gene or codon:\par
+\par
+\b Insertion\b0\par
+O' = O[1:i-1] + S(O) + O[i:len(O)], if X < p_insertion\par
+\par
+\b Deletion\b0\par
+O' = O[1:i-1] + O[i+1:len(O)], if X < p_deletion\par
+\par
+\b Point Mutation\b0\par
+O' = O[1:i-1] + S(O) + O[i+1:len(O)], if X < p_point\par
+\par
+\b Swap (within bounds and not involving delimiters)\b0\par
+O'[i] = O[j], O'[j] = O[i], if X < p_swap\par
+\par
+\b Capture (only within delimited regions)\b0\par
+O' = O[1:s-1] + capture(O[s:e]) + O[e+1:len(O)], if X < p_capture\par
+\par
+\b Open (only applies to captured codons)\b0\par
+O' = O[1:i-1] + open(c_j) + O[i+1:len(O)], if X < p_open, c_j \u8712? C\par
+\par
+These mathematical formulations capture the essential functionality of mutation selection and application, emphasizing the differential treatment of base genes and captured codons within a genetic algorithm context, ensuring fidelity to the encoded genetic structure while promoting genetic diversity and adaptability.\f0\lang9\par
+}
+ 

@@ -8,7 +8,7 @@ import cellpylib as cpl
 
 GLOBAL_SEED =            None
 NUM_CYCLES =              1
-MAX_GENERATIONS =         200
+MAX_GENERATIONS =         2
 random.seed(GLOBAL_SEED)
 
 STEPS = 100
@@ -18,7 +18,7 @@ RULE = 110
 MUTATION_PROB =           0.03
 DELIMITED_MUTATION_PROB = 0.03
 OPEN_MUTATION_PROB =      0.008
-CAPTURE_MUTATION_PROB =   0.0006
+CAPTURE_MUTATION_PROB =   0.01
 DELIMITER_INSERT_PROB =   0.005
 CROSSOVER_PROB =          .70
 ELITISM_RATIO =           0.06
@@ -27,7 +27,7 @@ MAX_INDIVIDUAL_LENGTH =   80
 POPULATION_SIZE =         500
 NUM_PARENTS =             100
 DELIMITER_SPACE =         3
-DELIMITERS =              False
+DELIMITERS =              True
 
 
 LOGGING =                 True

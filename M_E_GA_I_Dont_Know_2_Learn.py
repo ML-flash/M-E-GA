@@ -8,9 +8,9 @@ NUM_CYCLES =              1
 MAX_GENERATIONS =         800
 random.seed(GLOBAL_SEED)
 
-VOLUME = 5
-NUM_ITEMS = 80
-NUM_GROUPS = 4
+VOLUME = 8
+NUM_ITEMS = 200
+NUM_GROUPS = 27
 
 
 MUTATION_PROB =           0.01
@@ -38,10 +38,10 @@ INDIVIDUAL_LOGGING =      True
 
 S_MUTATION_PROB =           0.01
 S_DELIMITED_MUTATION_PROB = 0.01
-S_OPEN_MUTATION_PROB =      0.004
+S_OPEN_MUTATION_PROB =      0.007
 S_CAPTURE_MUTATION_PROB =   0.001
 S_DELIMITER_INSERT_PROB =   0.004
-S_CROSSOVER_PROB =          .90
+S_CROSSOVER_PROB =          .70
 S_ELITISM_RATIO =           0.6
 S_BASE_GENE_PROB =          0.50
 S_MAX_INDIVIDUAL_LENGTH =   400
@@ -56,7 +56,7 @@ ND_DELIMITED_MUTATION_PROB = 0.001
 ND_OPEN_MUTATION_PROB =      0.007
 ND_CAPTURE_MUTATION_PROB =   0.001
 ND_DELIMITER_INSERT_PROB =   0.004
-ND_CROSSOVER_PROB =          .90
+ND_CROSSOVER_PROB =          .70
 ND_ELITISM_RATIO =           0.70
 ND_BASE_GENE_PROB =          0.50
 ND_MAX_INDIVIDUAL_LENGTH =   400
@@ -103,12 +103,12 @@ def create_items(num_items, num_groups, properties=('size', 'weight', 'density',
             'id': item_id,
             'group': random.randint(0, num_groups - 1),
             'properties': {
-                'size': random.uniform(0.1, 1.0),
-                'weight': random.uniform(0.1, 1.0),
-                'density': random.uniform(0.1, 1.0),
-                'value': random.uniform(0.1, 1.0),
+                'size': random.uniform(0.1, 10.0),
+                'weight': random.uniform(0.1, 30.0),
+                'density': random.uniform(0.1, 10.0),
+                'value': random.uniform(0.1, 80.0),
             },
-            'reaction_strength': random.uniform(0.5, 1.5),  # Define the reaction strength with a random value
+            'reaction_strength': random.uniform(0.5, 5.5),  # Define the reaction strength with a random value
             'interactions': []  # Initialize an empty list for interactions
         }
 
@@ -171,7 +171,7 @@ def calculate_sack_value(sack, verbose=False):
     return total_value
 
 
-def problem_specific_fitness_function(encoded_individual, ga_instance, items, volume_bound=VOLUME, sack_capacity=100, verbose=False):
+def problem_specific_fitness_function(encoded_individual, ga_instance, items, volume_bound=VOLUME, sack_capacity=152, verbose=False):
     decoded_individual = ga_instance.decode_organism(encoded_individual)
     fitness_score = 0
     x, y, z = 0, 0, 0  # Starting position
@@ -209,6 +209,7 @@ def problem_specific_fitness_function(encoded_individual, ga_instance, items, vo
     # Verbose logging for the final fitness score
     if verbose:
         print(f"Final fitness score: {fitness_score}")
+    update_best_organism(encoded_individual, fitness_score, verbose=True)
 
     return fitness_score, {}
 

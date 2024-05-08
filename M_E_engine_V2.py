@@ -114,7 +114,7 @@ class EncodingManager:
     
         return encoded_list  # Return the list of hash keys    
 
-    @functools.lru_cache(maxsize=500)
+    @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
         # Convert the encoded tuple back to a list for processing
         stack = list(encoded_tuple)

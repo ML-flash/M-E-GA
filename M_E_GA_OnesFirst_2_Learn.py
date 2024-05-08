@@ -9,7 +9,7 @@ MAX_GENERATIONS = 200
 random.seed(GLOBAL_SEED)
 
 # Genetic Algorithm Constants
-MAX_LENGTH = 1500
+MAX_LENGTH = 200
 GENES = ['0', '1']
 MAX_INDIVIDUAL_LENGTH = 100
 
@@ -18,7 +18,7 @@ common_config = {
     'max_generations': MAX_GENERATIONS,
     'delimiters': False,
     'delimiter_space': 3,
-    'logging': False,
+    'logging': True,
     'generation_logging': False,
     'mutation_logging': False,
     'crossover_logging': False,
@@ -30,41 +30,41 @@ phase_settings = {
     "instructor": {
         'mutation_prob': 0.02,
         'delimited_mutation_prob': 0.01,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.002,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.45,
+        'open_mutation_prob': 0.28023955305420445,
+        'capture_mutation_prob': 0.2165873512395365,
+        'delimiter_insert_prob': 0.16383533567559352,
+        'crossover_prob': 0.16728890381214498,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.45,
+        'base_gene_prob': 0.136718597701958,
         'capture_gene_prob': 0.15,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "student": {
-        'mutation_prob': 0.002,
+        'mutation_prob': 0.02,
         'delimited_mutation_prob': 0.01,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.002,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.50,
+        'open_mutation_prob': 0.28023955305420445,
+        'capture_mutation_prob': 0.2165873512395365,
+        'delimiter_insert_prob': 0.16383533567559352,
+        'crossover_prob': 0.16728890381214498,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.45,
+        'base_gene_prob': 0.136718597701958,
         'capture_gene_prob': 0.15,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "nd_learner": {
-        'mutation_prob': 0.02,
-        'delimited_mutation_prob': 0.01,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.002,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.50,
+        'mutation_prob': 0.06611122187642611,
+        'delimited_mutation_prob': 0.1775437184946598,
+        'open_mutation_prob': 0.28023955305420445,
+        'capture_mutation_prob': 0.2165873512395365,
+        'delimiter_insert_prob': 0.16383533567559352,
+        'crossover_prob': 0.16728890381214498,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.45,
-        'capture_gene_prob': 0.15,
+        'base_gene_prob': 0.136718597701958,
+        'capture_gene_prob': 0.4,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
@@ -87,11 +87,29 @@ def update_best_organism(current_genome, current_fitness, verbose=False):
 
 
 def leading_ones_fitness_function(encoded_individual, ga_instance):
+    # Decode the individual
     decoded_individual = ga_instance.decode_organism(encoded_individual)
-    fitness_score = sum(1 ** i if gene == '1' else 0 for i, gene in enumerate(decoded_individual))
-    penalty = (1.008 ** (MAX_LENGTH - len(decoded_individual)) if len(decoded_individual) < MAX_LENGTH else (
-                len(decoded_individual) - MAX_LENGTH))
+
+    # Initialize fitness score
+    fitness_score = 0
+
+    # Count the number of leading '1's until the first '0'
+    for gene in decoded_individual:
+        if gene == '1':
+            fitness_score += 1
+        else:
+            break  # Stop counting at the first '0'
+
+    # Calculate the penalty
+    if len(decoded_individual) < MAX_LENGTH:
+        penalty = 1.008 ** (MAX_LENGTH - len(decoded_individual))
+    else:
+        penalty = len(decoded_individual) - MAX_LENGTH
+
+    # Update the best organism (assuming this function is defined elsewhere)
     update_best_organism(encoded_individual, fitness_score, verbose=True)
+
+    # Return the final fitness score after applying the penalty
     return fitness_score - penalty
 
 

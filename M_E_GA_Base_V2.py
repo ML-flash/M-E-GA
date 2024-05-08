@@ -20,7 +20,7 @@ class M_E_GA_Base:
                  elitism_ratio=0.06, base_gene_prob=0.98,
                  max_individual_length=6, population_size=400,
                  num_parents=80, max_generations=1000,
-                 delimiters=True, delimiter_space=2, logging=True,
+                 delimiters=True, delimiter_space=3, logging=True,
                  generation_logging=True, mutation_logging=False,
                  crossover_logging=False, individual_logging=False,
                  experiment_name="", encodings=None, seed=None,
@@ -346,7 +346,7 @@ class M_E_GA_Base:
 
             shift += 1
 
-        self.population = [self.repair(individual) for individual in new_population]
+
 
         return new_population
 
@@ -405,40 +405,57 @@ class M_E_GA_Base:
 
     # Mutation functions
 
-    def mutate_organism(self, organism, generation, mutation=None):
-
-        if self.logging:
+    def mutate_organism(self, organism, generation, mutation=None, log_enhanced=False):
+        if self.logging and not log_enhanced:
             self.log_organism_state("before_mutation", organism, generation)
         i = 0
+        detailed_logs = []  # Initialize detailed logs collection if enhanced logging is used
+
         while i < len(organism):
+            original = organism[:]  # Capture the state before mutation
             if mutation is None:
                 mutation_type = self.select_mutation_type(i, organism)
             else:
                 mutation_type = mutation
 
             # Handle the various types of mutations
-            if mutation_type == 'insertion':
-                organism, i = self.perform_insertion(organism, i)
-            elif mutation_type == 'point':
-                organism, i = self.perform_point_mutation(organism, i)
-            elif mutation_type == 'swap':
-                organism, i = self.perform_swap(organism, i)
-            elif mutation_type == 'delimit_delete':
-                organism, i = self.perform_delimit_delete(organism, i)
-            elif mutation_type == 'deletion':
-                organism, i = self.perform_deletion(organism, i)
-            elif mutation_type == 'capture':
-                organism, i = self.perform_capture(organism, i)
-            elif mutation_type == 'open':
-                organism, i = self.perform_open(organism, i, no_delimit=False)
-            elif mutation_type == 'open_no_delimit':
-                organism, i = self.perform_open(organism, i, no_delimit=True)
-            elif mutation_type == 'insert_delimiter_pair':
-                organism, i = self.insert_delimiter_pair(organism, i)
+            if mutation_type != 'None':
+                if mutation_type == 'insertion':
+                    organism, i = self.perform_insertion(organism, i)
+                elif mutation_type == 'point':
+                    organism, i = self.perform_point_mutation(organism, i)
+                elif mutation_type == 'swap':
+                    organism, i = self.perform_swap(organism, i)
+                elif mutation_type == 'delimit_delete':
+                    organism, i = self.perform_delimit_delete(organism, i)
+                elif mutation_type == 'deletion':
+                    organism, i = self.perform_deletion(organism, i)
+                elif mutation_type == 'capture':
+                    organism, i = self.perform_capture(organism, i)
+                elif mutation_type == 'open':
+                    organism, i = self.perform_open(organism, i, no_delimit=False)
+                elif mutation_type == 'open_no_delimit':
+                    organism, i = self.perform_open(organism, i, no_delimit=True)
+                elif mutation_type == 'insert_delimiter_pair':
+                    organism, i = self.insert_delimiter_pair(organism, i)
+
+                # Collect mutation details if enhanced logging is enabled
+                if log_enhanced:
+                    detailed_logs.append({
+                        "generation": generation,
+                        "type": mutation_type,
+                        "before": original,
+                        "after": organism[:],
+                        "index": i
+                    })
 
             i = max(0, min(i + 1, len(organism)))
 
-        return organism
+        # Optionally return detailed logs along with the organism if enhanced logging is enabled
+        if log_enhanced:
+            return organism, detailed_logs
+        else:
+            return organism
 
     def select_mutation_type(self, index, organism):
         gene = organism[index]
@@ -513,8 +530,15 @@ class M_E_GA_Base:
         if delimiter_pair is not None:
             start_location, end_location = delimiter_pair
 
-            # Perform deletion of the segment enclosed by the delimiters
-            organism = organism[:start_location] + organism[end_location + 1:]
+            # Remove only the delimiters while keeping the segment between them
+            if start_location + 1 < end_location:  # Ensure there is content between the delimiters
+                # Organism with start delimiter removed
+                organism = organism[:start_location] + organism[start_location + 1:end_location] + organism[
+                                                                                                   end_location + 1:]
+            else:
+                # If there is no content between the delimiters, remove both
+                organism = organism[:start_location] + organism[end_location + 1:]
+
             mutation_log = {
                 'type': 'delimit_delete',
                 'generation': self.current_generation,

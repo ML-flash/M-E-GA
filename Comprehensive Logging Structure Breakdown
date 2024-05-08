@@ -1,0 +1,105 @@
+Comprehensive Logging Structure Breakdown
+1. General Log Structure:
+Each log entry is typically tied to a generation, detailing the evolutionary process and results of that generation.
+2. Log Components:
+Initial Configuration:
+Key settings at the start of the genetic algorithm:
+Mutation probabilities, crossover settings, population size, number of generations, and other critical settings for understanding the experiment's setup.
+Generation Details:
+generation: The generation number.
+summary: Summary statistics of the generation.
+individuals: Detailed logs of each individual in the population.
+mutations: Details of mutations that occurred during the generation.
+crossovers: Details of crossover events.
+organisms: Additional detailed state of organisms before and after mutations.
+3. Summary Statistics (Within each generation log):
+average_fitness: Average fitness of the population.
+median_fitness: Median fitness value.
+best_fitness: Highest fitness achieved.
+worst_fitness: Lowest fitness recorded.
+4. Individual Details (Within each generation log):
+individual_index: Index of the individual within the population.
+organism: The genetic encoding of the individual.
+fitness_score: Fitness score of the individual.
+5. Mutation Details (Within each generation log):
+type: Type of mutation (e.g., insertion, deletion, swap, capture).
+generation: Generation in which the mutation occurred.
+index: Index within the organism's gene sequence where the mutation occurred.
+Specific details depending on mutation type (e.g., captured_codon, captured_segment for capture mutations).
+6. Crossover Details (Within each generation log):
+crossover_point: The point at which crossover occurred.
+parent1_before: Genetic sequence of the first parent before crossover.
+parent2_before: Genetic sequence of the second parent before crossover.
+offspring1: Resulting first offspring's genetic sequence.
+offspring2: Resulting second offspring's genetic sequence.
+7. Organisms State (Within each generation log):
+Detailed before and after states of organisms as they undergo mutations, capturing intermediate states for deeper analysis.
+8. Final Outcomes:
+Captured at the end of the genetic algorithm execution, summarizing the results and state of the evolution process:
+final_population: The last generation's population.
+final_fitness_scores: Fitness scores of the final population.
+genes: Active gene configurations in the final population.
+final_encodings: Details of genetic encodings at the conclusion of the run.
+9. File Handling:
+Logs are structured in JSON format and saved in a designated directory, ensuring data integrity and ease of access:
+Example directory management for log organization and retention.
+Example JSON Log Entry (Extended):
+json
+Copy code
+{
+  "initial_configuration": {
+    "MUTATION_PROB": 0.01,
+    "DELIMITED_MUTATION_PROB": 0.01,
+    "CAPTURE_MUTATION_PROB": 0.00001,
+    // Other initial settings
+  },
+  "generation": 1,
+  "summary": {
+    "average_fitness": 0.85,
+    "median_fitness": 0.83,
+    "best_fitness": 0.99,
+    "worst_fitness": 0.60
+  },
+  "individuals": [
+    {
+      "individual_index": 0,
+      "organism": "gene_sequence",
+      "fitness_score": 0.92
+    },
+    // More individuals
+  ],
+  "mutations": [
+    {
+      "type": "capture",
+      "generation": 1,
+      "index": 5,
+      "captured_segment": "segment_info",
+      "captured_codon": "meta_gene"
+    },
+    // More mutations
+  ],
+  "crossovers": [
+    {
+      "crossover_point": 3,
+      "parent1_before": "gene_seq1",
+      "parent2_before": "gene_seq2",
+      "offspring1": "gene_seq1/2",
+      "offspring2": "gene_seq2/1"
+    },
+    // More crossovers
+  ],
+  "organisms": [
+    {
+      "stage": "post_mutation",
+      "generation": 1,
+      "encoded_organism": "modified_gene_sequence"
+    },
+    // More organism states
+  ],
+  "final_outcomes": {
+    "final_population": [/* population details */],
+    "final_fitness_scores": [/* fitness scores */],
+    "genes": [/* gene details */],
+    "final_encodings": [/* encoding details */]
+  }
+}

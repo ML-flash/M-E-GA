@@ -822,6 +822,7 @@ class M_E_GA_Base:
                 "CROSSOVER_PROB": self.crossover_prob,
                 "ELITISM_RATIO": self.elitism_ratio,
                 "BASE_GENE_PROB": self.base_gene_prob,
+                "CAPTURE_GENE_PROB": self.capture_gene_prob
                 "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
                 "POPULATION_SIZE": self.population_size,
                 "NUM_PARENTS": self.num_parents,

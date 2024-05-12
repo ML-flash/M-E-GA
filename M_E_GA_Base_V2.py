@@ -14,6 +14,54 @@ from M_E_engine_V2 import EncodingManager
 
 
 class M_E_GA_Base:
+    """
+    Base class for managing integrating of the Mutable encoding into a GA through the use of the Encoding manager
+    
+    This class handles the initialization and execution of genetic algorithms in the context of Mutable encoding 
+    through the Encoding manager ME_engine.py . This class Is extremely important because the Specialized mutations
+    required to make efficent use of the capabilities provided through the M_E_engine are touchy. Delimiter 
+    placement and order are critical to proper functioning. The nocel mutations are as of now Insert_delimiter_pair,
+    delimit_delte, capture, Open. Swap is a special case that has been modified to respect delimiter ordering IE
+    It wont swap an start Delimiter with an End delimiter.
+
+    The fitness function has been abstracted away allowing for extermal use This makes rapid itteration of 
+    Mutabl Encoding enabled GAs easy and straight forward. 
+
+    The design Is highly modular to allow for the creation of customized experemental setups that interact with the M_E_engine is unique testable ways.
+
+    Logging is extensive and easily turned on and off or customized through the use of several flags.
+    
+
+    Attributes:
+        genes (list): List of genes used for the genetic algorithm.
+        fitness_function (function): The fitness function used to evaluate individuals.
+        mutation_prob (float): The probability of a mutation occurring.
+        delimited_mutation_prob (float): Mutation probability within delimited sections.
+        open_mutation_prob (float): Probability of an open mutation happening.
+        capture_mutation_prob (float): Probability of capturing a segment of genes.
+        delimiter_insert_prob (float): Probability of inserting delimiter pairs into the organism.
+        crossover_prob (float): The probability that crossover will occur between two parents.
+        elitism_ratio (float): The proportion of the top-performing individuals to carry over to the next generation.
+        base_gene_prob (float): Probability of selecting a base gene over a captured gene segment.
+        max_individual_length (int): The maximum length of an individual organism.
+        population_size (int): The number of individuals in the population.
+        num_parents (int): The number of parents used for breeding in the population.
+        max_generations (int): The maximum number of generations to be produced.
+        delimiters (bool): Indicates whether delimiter genes should be included in organisms.
+        delimiter_space (int): The space between delimiter pairs in the genome.
+        logging (bool): Flag to enable logging of various steps of the algorithm.
+        generation_logging (bool): Enables detailed logging of each generation.
+        mutation_logging (bool): Enables detailed logging of mutation events.
+        crossover_logging (bool): Enables detailed logging of crossover events.
+        individual_logging (bool): Enables logging of individual organisms' data.
+        experiment_name (str): The name of the experiment, used for logging.
+        encodings (dict): A dictionary of external encodings to be integrated into the EncodingManager.
+        seed (int, optional): Seed for random number generator to ensure reproducibility.
+        before_fitness_evaluation (function, optional): Function called before each fitness evaluation.
+        after_population_selection (function, optional): Function called after population selection.
+        before_generation_finalize (function, optional): Function called before finalizing the current generation.
+        capture_gene_prob (float): Probability of selecting a captured gene during organism generation.
+    """
     def __init__(self, genes, fitness_function, mutation_prob=0.01, delimited_mutation_prob=0.01,
                  open_mutation_prob=0.0001, capture_mutation_prob=0.00001,
                  delimiter_insert_prob=0.00001, crossover_prob=0.50,
@@ -25,7 +73,11 @@ class M_E_GA_Base:
                  crossover_logging=False, individual_logging=False,
                  experiment_name="", encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
-                 before_generation_finalize=None, capture_gene_prob=0, **kwargs):  # Added capture_gene_prob here
+                 before_generation_finalize=None, capture_gene_prob=0, **kwargs): 
+        """
+        Initializes the genetic algorithm with the specified configuration.
+        """
+                     
         # Directly use the provided genes list for the encoding manager without assuming a specific structure like 'gene['id']'
         self.genes = genes
         self.fitness_function = fitness_function
@@ -82,6 +134,14 @@ class M_E_GA_Base:
     # Logging
 
     def log_generation(self, generation, fitness_scores, population=None):
+        """
+        Logs summary statistics for a generation, including average, median, best, and worst fitness scores.
+        
+        Parameters:
+            generation (int): The generation number.
+            fitness_scores (list): A list of fitness scores from the current generation.
+            population (list, optional): The current population of organisms.
+        """
         if self.logging and self.generation_logging:
             average_fitness = sum(fitness_scores) / len(fitness_scores)
             median_fitness = sorted(fitness_scores)[len(fitness_scores) // 2]
@@ -99,6 +159,12 @@ class M_E_GA_Base:
             current_generation_log["summary"] = summary_log
 
     def log_mutation(self, mutation_details):
+        """
+        Logs detailed information about mutation events.
+        
+        Parameters:
+            mutation_details (dict): A dictionary containing details of the mutation event.
+        """
         if self.logging and self.mutation_logging:
             # Find the latest generation log
             if self.logs:
@@ -106,6 +172,17 @@ class M_E_GA_Base:
                 current_generation_log["mutations"].append(mutation_details)
 
     def log_crossover(self, generation, parent1, parent2, crossover_point, offspring1, offspring2):
+        """
+        Logs a crossover event including details about the parents, the point of crossover, and the offspring.
+        
+        Parameters:
+            generation (int): The current generation number.
+            parent1 (list): Encoding of the first parent.
+            parent2 (list): Encoding of the second parent.
+            crossover_point (int): The index at which crossover occurs.
+            offspring1 (list): Encoding of the first offspring.
+            offspring2 (list): Encoding of the second offspring.
+        """
         if self.logging and self.crossover_logging:
             crossover_log = {
                 "crossover_point": crossover_point,
@@ -118,6 +195,16 @@ class M_E_GA_Base:
             current_generation_log["crossovers"].append(crossover_log)
 
     def log_fitness_function_settings(self, settings):
+        """
+        Logs the settings of the fitness function including additional parameters related to volume and size penalties.
+        The logging is performed only once per instance to prevent duplicate entries.
+
+        Args:
+            settings (dict): A dictionary of settings that might already include some fitness function settings.
+
+        Returns:
+            None
+        """
         if self.logging and self.fitness_settings_logging and not self.fitness_settings_logged:
             # Include new parameters in the settings log
             settings.update({
@@ -130,6 +217,17 @@ class M_E_GA_Base:
             self.fitness_settings_logged = True
 
     def log_final_organism(self, generation, organism, target_phrase):
+        """
+        Logs the final organism of a simulation, including its generation, encoded form, and decoded target phrase.
+
+        Args:
+            generation (int): The generation number of the organism.
+            organism (list): The encoded representation of the organism.
+            target_phrase (str): The decoded form of the organism, usually representing the target phrase.
+
+        Returns:
+            None
+        """
         if self.logging:
             final_organism_log = {
                 "type": "final_organism",
@@ -140,6 +238,17 @@ class M_E_GA_Base:
             self.logs.append(final_organism_log)
 
     def individual_logging_fitness(self, generation, population, fitness_scores):
+        """
+        Logs detailed fitness information for each individual in the population for a specific generation.
+
+        Args:
+            generation (int): The generation number to log.
+            population (list): A list of organisms in the current generation.
+            fitness_scores (list): A list of fitness scores corresponding to the population.
+
+        Returns:
+            None
+        """
         if self.logging and self.individual_logging:
             current_generation_log = self.logs[-1]  # Get the latest generation log
             for index, fitness_score in enumerate(fitness_scores):
@@ -151,6 +260,15 @@ class M_E_GA_Base:
                 current_generation_log["individuals"].append(individual_log)
 
     def start_new_generation_logging(self, generation_number):
+        """
+        Initiates logging for a new generation, including placeholders for summary statistics, individual fitness logs, mutation, and crossover events.
+
+        Args:
+            generation_number (int): The number of the new generation being logged.
+
+        Returns:
+            None
+        """
         generation_log = {
             "generation": generation_number,
             "summary": {},  # Placeholder for summary statistics
@@ -162,6 +280,15 @@ class M_E_GA_Base:
         self.logs.append(generation_log)
 
     def log_new_organism(self, organism_encoding):
+        """
+        Logs the encoding of a newly created organism.
+
+        Args:
+            organism_encoding (list): The genetic encoding of the organism.
+
+        Returns:
+            None
+        """
         organism_log = {
             "encoding": organism_encoding,
             # Other organism details can go here
@@ -170,6 +297,17 @@ class M_E_GA_Base:
             self.logs[-1]["organisms"].append(organism_log)
 
     def log_organism_state(self, stage, organism, generation):
+        """
+        Logs the state of an organism at a particular stage in the generation process.
+
+        Args:
+            stage (str): The stage of processing (e.g., 'before_mutation', 'after_crossover').
+            organism (list): The current state of the organism.
+            generation (int): The generation number during which the organism is being processed.
+
+        Returns:
+            None
+        """
         organism_log = {
             "stage": stage,
             "generation": generation,
@@ -180,6 +318,16 @@ class M_E_GA_Base:
         self.logs[-1]["organisms"].append(organism_log)
 
     def save_logs(self, logs, file_name=None):
+        """
+        Saves the collected logs to a JSON file in a specified directory. If no file name is provided, it generates one based on the experiment name and current datetime.
+
+        Args:
+            logs (dict): The logs to be saved.
+            file_name (str, optional): The name of the file to save the logs. Defaults to None, generating a name automatically.
+
+        Returns:
+            None
+        """
         if file_name is None:
             file_name = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
 
@@ -202,6 +350,13 @@ class M_E_GA_Base:
     # Utility functions
 
     def initialize_population(self):
+        """
+        Initializes the population for the genetic algorithm by creating organisms with randomly generated genetic encodings.
+        Each organism is generated with a random length and potentially includes special delimiter genes based on a set probability.
+
+        Returns:
+            list: A list of organisms each represented as a genetic encoding.
+        """
         population = []
         for _ in range(int(self.population_size)):
             individual_length = random.randint(2, self.max_individual_length)
@@ -212,6 +367,17 @@ class M_E_GA_Base:
         return population
 
     def decode_organism(self, encoded_organism, format=False):
+        """
+        Decodes a given organism from its genetic encoding into a more interpretable gene sequence.
+        Optionally formats the decoded genes by removing special 'Start' and 'End' delimiters.
+
+        Args:
+            encoded_organism (list): The genetic encoding of the organism.
+            format (bool, optional): Whether to format the decoded genes by removing delimiters. Defaults to False.
+
+        Returns:
+            list: The decoded gene sequence of the organism.
+        """
         encoded_organism = tuple(encoded_organism)
         decoded_genes = self.encoding_manager.decode(encoded_organism, verbose=False)
         if format:
@@ -220,6 +386,16 @@ class M_E_GA_Base:
         return decoded_genes
 
     def encode_string(self, genetic_string):
+        """
+        Encodes a given genetic string into its corresponding genetic encoding using the reverse encodings from the EncodingManager.
+        If a gene is not found in the reverse encodings, it is added dynamically.
+
+        Args:
+            genetic_string (str): The string of genes to be encoded.
+
+        Returns:
+            list: The genetic encoding corresponding to the input string.
+        """
         encoded_sequence = []
         for gene in genetic_string:
             if gene in self.encoding_manager.reverse_encodings:
@@ -233,6 +409,15 @@ class M_E_GA_Base:
         return encoded_sequence
 
     def find_delimited_segments_in_decoded(self, decoded_organism):
+        """
+        Identifies and returns the segments of genes that are delimited by 'Start' and 'End' markers in a decoded organism.
+
+        Args:
+            decoded_organism (list): The decoded gene sequence of an organism.
+
+        Returns:
+            list of tuples: A list of tuples where each tuple contains the start and end indices of delimited segments.
+        """
         segments = []
         segment_start = None
         for i, gene in enumerate(decoded_organism):
@@ -244,6 +429,19 @@ class M_E_GA_Base:
         return segments
 
     def validate_delimiters(self, organism, context=""):
+        """
+        Validates the structure of delimiters ('Start' and 'End') in a decoded organism. Raises an error if delimiters are unmatched.
+
+        Args:
+            organism (list): The genetic encoding of the organism.
+            context (str, optional): Additional context provided for error messages. Defaults to an empty string.
+
+        Returns:
+            list: The original organism if delimiters are correctly matched.
+
+        Raises:
+            ValueError: If there are unmatched 'Start' or 'End' delimiters.
+        """
         decoded_organism = self.encoding_manager.decode(organism)
         delimiter_stack = []
         for i, gene in enumerate(decoded_organism):
@@ -260,9 +458,17 @@ class M_E_GA_Base:
                 f"Unmatched 'Start' found at index {unmatched_start} in context '{context}'. Decoded organism: {decoded_organism}")
         return organism
 
-    import random
 
     def select_gene(self, verbose=False):
+        """
+        Selects a gene from the available genes, with a probability that can favor base genes or captured segments based on the current configuration.
+
+        Args:
+            verbose (bool, optional): If True, prints the selected gene type and key. Defaults to False.
+
+        Returns:
+            str: The selected gene key.
+        """
         # Decide whether to select a base gene or a captured codon
         if random.random() < self.base_gene_prob or not self.encoding_manager.captured_segments:
             # Select a base gene if probability condition is met or if captured_segments is empty
@@ -290,7 +496,13 @@ class M_E_GA_Base:
         return gene_key
 
     def evaluate_population_fitness(self):
-        """Evaluate the fitness of the entire population."""
+        """
+        Evaluates the fitness of the entire population based on the current fitness function settings.
+        Optionally calls hooks before and after fitness evaluation for additional operations.
+
+        Returns:
+            list: A list of fitness scores corresponding to each individual in the population.
+        """
         if self.before_fitness_evaluation:
             self.before_fitness_evaluation(self)
 
@@ -304,6 +516,15 @@ class M_E_GA_Base:
     # Crossover functions
 
     def is_fully_delimited(self, organism):
+        """
+        Checks if the given organism starts with a 'Start' delimiter and ends with an 'End' delimiter, making it fully delimited.
+
+        Args:
+            organism (list): The genetic encoding of the organism.
+
+        Returns:
+            bool: True if the organism is fully delimited, False otherwise or if the organism is empty.
+        """
         if not organism:  # Check if organism is empty
             return False  # An empty organism cannot be fully delimited
 
@@ -312,6 +533,16 @@ class M_E_GA_Base:
         return organism[0] == start_codon and organism[-1] == end_codon
 
     def select_and_generate_new_population(self, generation):
+        """
+        Selects and generates a new population by applying elitism, crossover, and mutation processes. The population is selected based on fitness scores and sorted accordingly.
+
+        Args:
+            generation (int): The current generation number, used for logging purposes during mutation.
+
+        Returns:
+            list: The new population after crossover and mutation.
+        """
+
         sorted_population = sorted(zip(self.population, self.fitness_scores), key=lambda x: x[1], reverse=True)
         num_elites = int(self.elitism_ratio * self.population_size)
         elites = [individual for individual, _ in sorted_population[:num_elites]]
@@ -351,6 +582,19 @@ class M_E_GA_Base:
         return new_population
 
     def process_or_crossover_parents(self, new_population, parent1, parent2, generation):
+        """
+        Processes or crosses over two parent organisms based on their delimitation status and crossover probability.
+        This is part of breeding a new population post fitness evaluation.
+
+        Args:
+            new_population (list): The current new population being generated.
+            parent1 (list): The first parent organism.
+            parent2 (list): The second parent organism.
+            generation (int): The current generation number for logging.
+
+        Returns:
+            list: Updated new population with the offspring or original parents as required.
+        """
         if self.is_fully_delimited(parent1) or self.is_fully_delimited(parent2):
             if self.is_fully_delimited(parent1):
                 new_population.append(parent1)
@@ -369,6 +613,16 @@ class M_E_GA_Base:
         return new_population
 
     def get_non_delimiter_indices(self, parent1, parent2):
+        """
+        Computes the regions in parent organisms that are not part of any delimited segments, allowing crossover to occur safely outside of these segments.
+
+        Args:
+            parent1 (list): The first parent organism.
+            parent2 (list): The second parent organism.
+
+        Returns:
+            list: The indices where crossover can occur without disrupting delimited segments.
+    """
         delimiter_indices = self.calculate_delimiter_indices(parent1, parent2)
         non_delimited_indices = set(range(min(len(parent1), len(parent2))))
 
@@ -378,6 +632,17 @@ class M_E_GA_Base:
         return list(non_delimited_indices)
 
     def crossover(self, parent1, parent2, non_delimited_indices):
+        """
+        Performs crossover between two parent organisms at a randomly chosen point from the provided list of non-delimited indices.
+
+        Args:
+            parent1 (list): The first parent organism.
+            parent2 (list): The second parent organism.
+            non_delimited_indices (list): Indices that are not part of delimited segments.
+
+        Returns:
+            tuple: Two new offspring organisms resulting from the crossover.
+        """
         crossover_point = self.choose_crossover_point(non_delimited_indices)
 
         if crossover_point is None:
@@ -390,9 +655,29 @@ class M_E_GA_Base:
         return offspring1, offspring2
 
     def choose_crossover_point(self, non_delimited_indices):
+        """
+        Randomly selects a crossover point from a list of indices that are not part of any delimited segments.
+
+        Args:
+            non_delimited_indices (list): A list of indices eligible for crossover.
+
+        Returns:
+            int or None: The chosen index for crossover or None if no indices are available.
+    """
+
         return random.choice(non_delimited_indices) if non_delimited_indices else None
 
     def calculate_delimiter_indices(self, parent1, parent2):
+        """
+        Calculates the indices of 'Start' and 'End' delimiters in both parent organisms, used to avoid disrupting structured segments during crossover.
+
+        Args:
+            parent1 (list): The first parent organism.
+            parent2 (list): The second parent organism.
+
+        Returns:
+            list of tuples: A list of tuples where each tuple contains the start and end indices of a delimited segment.
+        """
         delimiter_indices = []
         for parent in [parent1, parent2]:
             starts = [i for i, codon in enumerate(parent) if codon == self.encoding_manager.reverse_encodings['Start']]
@@ -401,11 +686,34 @@ class M_E_GA_Base:
         return delimiter_indices
 
     def is_entirely_delimited(self, organism, delimiter_indices):
+        """
+        Checks if an organism is entirely enclosed within delimiters from the first to the last gene.
+
+        Args:
+            organism (list): The organism to check.
+            delimiter_indices (list of tuples): The indices of delimiters identified in the organism.
+
+        Returns:
+            bool: True if the organism is entirely delimited, False otherwise.
+        """
         return delimiter_indices and delimiter_indices[0][0] == 0 and delimiter_indices[-1][1] == len(organism) - 1
 
     # Mutation functions
 
     def mutate_organism(self, organism, generation, mutation=None, log_enhanced=False):
+        """
+        Mutates a given organism by applying a series of mutation operations. It supports both predefined and randomly selected mutations
+        based on mutation type.
+
+        Args:
+            organism (list): The organism to mutate.
+            generation (int): The current generation number, used for logging purposes.
+            mutation (str, optional): A specific mutation type to apply. If None, a mutation type is selected based on probabilities.
+            log_enhanced (bool, optional): If True, enables enhanced logging of mutation details.
+
+        Returns:
+            list: The mutated organism, potentially along with detailed logs if enhanced logging is enabled.
+        """
         if self.logging and not log_enhanced:
             self.log_organism_state("before_mutation", organism, generation)
         i = 0
@@ -458,6 +766,16 @@ class M_E_GA_Base:
             return organism
 
     def select_mutation_type(self, index, organism):
+        """
+        Selects a mutation type for a given gene in the organism based on its context within delimited regions and predefined probabilities.
+
+        Args:
+            index (int): The index of the gene to mutate.
+            organism (list): The organism containing the gene.
+
+        Returns:
+            str: The selected mutation type.
+        """
         gene = organism[index]
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
@@ -494,6 +812,16 @@ class M_E_GA_Base:
         return random.choice(mutation_choices)
 
     def insert_delimiter_pair(self, organism, index):
+        """
+        Inserts a pair of 'Start' and 'End' delimiters into the organism at a specified index.
+
+        Args:
+            organism (list): The organism to mutate.
+            index (int): The index at which to insert the delimiters.
+
+        Returns:
+            tuple: The modified organism and the index immediately after the inserted end delimiter.
+        """
         mutation_log = {
             'type': 'insert_delimiter_pair',
             'generation': self.current_generation,
@@ -523,6 +851,16 @@ class M_E_GA_Base:
         return organism, end_delimiter_index
 
     def perform_delimit_delete(self, organism, index):
+        """
+        Deletes a delimited segment or just the delimiters depending on the content between them, from the specified index.
+
+        Args:
+            organism (list): The organism from which delimiters are to be deleted.
+            index (int): The index of the starting delimiter of the segment.
+
+        Returns:
+            tuple: The modified organism and the new index after deletion.
+        """
         mutation_log = None
         delimiter_pair = self.find_delimiters(organism, index)
 
@@ -553,6 +891,16 @@ class M_E_GA_Base:
         return organism, index
 
     def perform_insertion(self, organism, index):
+        """
+        Inserts a new gene into the organism at a specified index.
+
+        Args:
+            organism (list): The organism where the gene is to be inserted.
+            index (int): The index at which to insert the new gene.
+
+        Returns:
+            tuple: The modified organism and the index immediately following the new insertion.
+        """
         mutation_log = None
         gene_key = self.select_gene()  # This now returns the hash key directly
 
@@ -575,6 +923,16 @@ class M_E_GA_Base:
         return organism, index + 1
 
     def perform_point_mutation(self, organism, index):
+        """
+        Replaces the gene at a specific index with a new gene selected based on genetic diversity.
+
+        Args:
+            organism (list): The organism undergoing mutation.
+            index (int): The index of the gene to mutate.
+
+        Returns:
+            tuple: The modified organism and the index of the mutated gene.
+        """
         mutation_log = None
         new_codon = self.select_gene()  # This now returns a hash key directly
 
@@ -597,6 +955,17 @@ class M_E_GA_Base:
         return organism, index
 
     def perform_swap(self, organism, index):
+        """
+        Swaps the gene at the given index with an adjacent gene, if swapping is possible.
+        Swapping is not allowed between two delimiters.
+
+        Args:
+            organism (list): The organism in which the swap is to occur.
+            index (int): The index of the gene to be swapped.
+
+        Returns:
+            tuple: The organism after the swap and the index where the swap occurred.
+        """
         mutation_log = None
         swap_actions = ['forward', 'backward']
         first_action = random.choice(swap_actions)
@@ -626,12 +995,19 @@ class M_E_GA_Base:
 
         return organism, index
 
-    '''def can_swap(self, organism, index_a, index_b):
-        if 0 <= index_a < len(organism) and 0 <= index_b < len(organism):
-            return True  # Assuming swapping between valid indices is always allowed
-        return False'''
 
     def can_swap(self, organism, index_a, index_b):
+        """
+        Determines if two genes in an organism can be swapped based on their indices and types.
+
+        Args:
+            organism (list): The organism containing the genes.
+            index_a (int): The index of the first gene.
+            index_b (int): The index of the second gene.
+
+        Returns:
+            bool: True if swapping is allowed, False otherwise.
+        """
         # Check if indices are within the bounds of the organism
         if 0 <= index_a < len(organism) and 0 <= index_b < len(organism):
             # Access the reverse encoding for 'Start' and 'End'
@@ -648,6 +1024,16 @@ class M_E_GA_Base:
         return False  # Do not allow swap if indices are out of bounds
 
     def perform_deletion(self, organism, index):
+        """
+        Deletes a gene from the organism at the specified index.
+
+        Args:
+            organism (list): The organism from which the gene is to be deleted.
+            index (int): The index of the gene to delete.
+
+        Returns:
+            tuple: The modified organism and the adjusted index following the deletion.
+        """
         mutation_log = None
         if len(organism) > 1:
             deleted_codon = organism[index]
@@ -667,6 +1053,16 @@ class M_E_GA_Base:
         return organism, index
 
     def find_delimiters(self, organism, index):
+        """
+        Finds the closest pair of 'Start' and 'End' delimiters around the specified index within an organism.
+
+        Args:
+            organism (list): The organism to search within.
+            index (int): The index near which to find delimiters.
+
+        Returns:
+            tuple or None: The indices of the start and end delimiters if found, otherwise None.
+        """
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
         start_index, end_index = None, None
@@ -692,6 +1088,16 @@ class M_E_GA_Base:
         return None
 
     def perform_capture(self, organism, index):
+        """
+        Captures a delimited segment within an organism and replaces it with a single codon representing the entire segment.
+
+        Args:
+            organism (list): The organism containing the segment.
+            index (int): The index of the start delimiter of the segment to capture.
+
+        Returns:
+            tuple: The modified organism and the index at which the segment was captured.
+        """
         mutation_log = None
         delimiters = self.find_delimiters(organism, index)
 
@@ -722,6 +1128,17 @@ class M_E_GA_Base:
         return organism, index
 
     def perform_open(self, organism, index, no_delimit=False):
+        """
+        Opens a previously captured segment within an organism, expanding it into its original form.
+
+        Args:
+            organism (list): The organism containing the compressed segment.
+            index (int): The index of the segment to open.
+            no_delimit (bool, optional): If True, opens the segment without considering delimiters.
+
+        Returns:
+            tuple: The organism after expansion and the adjusted index after the operation.
+        """
         mutation_log = None
         decompressed = self.encoding_manager.open_segment(organism[index], no_delimit=no_delimit)
         if decompressed is not False:
@@ -742,6 +1159,16 @@ class M_E_GA_Base:
         return organism, index
 
     def repair(self, organism):
+        """
+        Repairs an organism by removing unpaired 'Start' and 'End' delimiters to ensure structural integrity.
+        not currently used. Was for initial testing while I tracked down bugs that were messing up delimiters.
+
+        Args:
+            organism (list): The organism to repair.
+
+        Returns:
+            list: The repaired organism.
+        """
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
         depth = 0
@@ -769,6 +1196,25 @@ class M_E_GA_Base:
         return organism
 
     def run_algorithm(self):
+         """
+        Executes the main loop of the genetic algorithm, iterating through the generations and applying genetic operations.
+        This method handles the entire lifecycle of the genetic algorithm, from initializing the population, evaluating fitness,
+        logging generation details, performing selection and genetic operations, to final logging and analysis.
+
+        The method utilizes several callbacks for different stages of the algorithm to provide flexibility in extending and 
+        customizing the behavior at key points in the evolutionary cycle.
+
+        Side effects:
+            - Initializes and updates the population of organisms across generations.
+            - Computes and logs fitness scores.
+            - Applies genetic operators such as crossover and mutation.
+            - Optionally logs detailed information about each generation and the final configuration of the algorithm.
+            - Prints average fitness at each generation.
+            - May save the final state of the algorithm to a JSON file.
+
+        Returns:
+            None
+        """
         self.population = self.initialize_population()
 
         for generation in range(self.max_generations):

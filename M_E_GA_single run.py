@@ -2,13 +2,12 @@ import random
 from M_E_GA_Base_V2 import M_E_GA_Base
 from concurrent.futures import ThreadPoolExecutor
 import os
+from M_E_GA_fitness_funcs import LeadingOnesFitness  # Import the modified fitness function class
 
-
-MAX_LENGTH = 200
+MAX_LENGTH = 300
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
-# Placeholder for the best organism found during the GA run.
 best_organism = {
     "genome": None,
     "fitness": float('-inf')
@@ -22,65 +21,34 @@ def update_best_organism(current_genome, current_fitness, verbose=False):
         if verbose:
             print(f"New best organism found with fitness {current_fitness}")
 
-from concurrent.futures import ThreadPoolExecutor
-
-
 def evaluate_population(population, encoding_manager, num_threads=None):
-    # If no specific number of threads is provided, use the number of CPUs available
     if num_threads is None:
         num_threads = os.cpu_count()
-
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        # Map each individual in the population to the evaluate_individual function
         results = list(executor.map(lambda ind: evaluate_individual(ind, encoding_manager), population))
     return results
 
-# Individual fitness function.
-def leading_ones_fitness_function(encoded_individual, ga_instance):
-    # Decode the individual
-    decoded_individual = ga_instance.decode_organism(encoded_individual)
-
-    # Initialize fitness score
-    fitness_score = 0
-
-    # Count the number of leading '1's until the first '0'
-    for gene in decoded_individual:
-        if gene == '1':
-            fitness_score += 1
-        else:
-            break  # Stop counting at the first '0'
-
-    # Calculate the penalty
-    if len(decoded_individual) < MAX_LENGTH:
-        penalty = 1.008 ** (MAX_LENGTH - len(decoded_individual))
-    else:
-        penalty = len(decoded_individual) - MAX_LENGTH
-
-    # Update the best organism (assuming this function is defined elsewhere)
-    update_best_organism(encoded_individual, fitness_score, verbose=True)
-
-    # Return the final fitness score after applying the penalty
-    return fitness_score - penalty
-
-genes = ['0', '1']
+# Initialize the fitness function with update function passed in
+fitness_function = LeadingOnesFitness(max_length=MAX_LENGTH, update_best_func=update_best_organism)
+genes = fitness_function.genes
 
 config = {
     'mutation_prob': 0.10,
-    'delimited_mutation_prob': 0.07,
+    'delimited_mutation_prob': 0.05,
     'open_mutation_prob': 0.007,
     'capture_mutation_prob': 0.002,
-    'delimiter_insert_prob': 0.004,
-    'crossover_prob': 0.16728890381214498,
+    'delimiter_insert_prob': 0.05,
+    'crossover_prob': 0.50,
     'elitism_ratio': 0.6,
-    'base_gene_prob': 0.936718597701958,
-    'capture_gene_prob': 0.20,
-    'max_individual_length': 20,
+    'base_gene_prob': 0.50,
+    'capture_gene_prob': 0.1,
+    'max_individual_length': 90,
     'population_size': 700,
     'num_parents': 150,
     'max_generations': 300,
     'delimiters': False,
     'delimiter_space': 2,
-    'logging': False,
+    'logging': True,
     'generation_logging': False,
     'mutation_logging': True,
     'crossover_logging': False,
@@ -88,8 +56,8 @@ config = {
     'seed': GLOBAL_SEED
 }
 
-# Initialize the GA
-ga = M_E_GA_Base(genes, leading_ones_fitness_function, **config)
+# Initialize the GA with the selected genes and the fitness function's compute method
+ga = M_E_GA_Base(genes, lambda ind, ga_instance: fitness_function.compute(ind, ga_instance), **config)
 
 # Run the GA
 ga.run_algorithm()

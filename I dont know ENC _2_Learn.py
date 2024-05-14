@@ -9,7 +9,7 @@ MAX_GENERATIONS =         800
 random.seed(GLOBAL_SEED)
 
 VOLUME = 5
-NUM_ITEMS = 40
+NUM_ITEMS = 80
 NUM_GROUPS = 4
 
 

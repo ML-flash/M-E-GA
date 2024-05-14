@@ -71,7 +71,7 @@ class M_E_GA_Base:
                  delimiters=True, delimiter_space=3, logging=True,
                  generation_logging=True, mutation_logging=False,
                  crossover_logging=False, individual_logging=False,
-                 experiment_name="", encodings=None, seed=None,
+                 experiment_name=None, encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
                  before_generation_finalize=None, capture_gene_prob=0, **kwargs): 
         """
@@ -126,10 +126,9 @@ class M_E_GA_Base:
             for gene in self.genes:
                 self.encoding_manager.add_gene(gene, verbose=True)
 
-        if self.logging:
-            if not self.experiment_name:
-                self.experiment_name = input("Enter the experiment name: ")
-                self.log_filename = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        if self.logging and self.experiment_name == None:
+            self.experiment_name = input("Enter the experiment name: ")
+            self.log_filename = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
 
     # Logging
 

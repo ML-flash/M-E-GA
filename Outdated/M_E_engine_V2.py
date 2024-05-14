@@ -10,7 +10,23 @@ import xxhash
 import functools
 
 class EncodingManager:
+     """
+    Manages the encoding and decoding of genes using hash keys.
+    
+    This class handles the addition of new genes, integrates uploaded encoding data,
+    and performs encoding and decoding of gene sequences. It supports the manipulation
+    of captured gene segments and facilitates complex operations on encoded organisms.
+    
+    Attributes:
+        encodings (dict): A dictionary mapping hash keys to gene names.
+        reverse_encodings (dict): A dictionary mapping gene names to hash keys.
+        captured_segments (dict): A dictionary mapping captured segment tuples to their hash keys.
+        gene_counter (int): A counter to generate unique identifiers for new genes.
+    """
     def __init__(self):
+        """
+        Initializes the EncodingManager with default genes 'Start' and 'End'.
+        """
         # Initialize with default genes 'Start' and 'End'
         self.encodings = {}
         self.reverse_encodings = {}
@@ -22,10 +38,27 @@ class EncodingManager:
         self.add_gene('End', predefined_id=2)
 
     def generate_hash_key(self, identifier):
+        """
+        Generates a hash key for a given identifier using xxhash's 32-bit version.
+        
+        Parameters:
+            identifier (str): The identifier for which to generate a hash key.
+        
+        Returns:
+            int: A hash key generated from the identifier.
+        """
         # Use xxhash's 32-bit version to generate a shorter hash
         return xxhash.xxh32_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
+        """
+        Adds a gene to the encoding manager with an optional predefined identifier.
+        
+        Parameters:
+            gene (str): The gene to be added.
+            verbose (bool): If True, prints detailed debug information.
+            predefined_id (int, optional): A predefined identifier for the gene.
+        """
         # Use predefined_id for default genes or increment gene_counter for new genes
         identifier = predefined_id if predefined_id is not None else self.gene_counter
 
@@ -49,6 +82,14 @@ class EncodingManager:
         
         
     def integrate_uploaded_encodings(self, uploaded_encodings, base_genes, verbose=False):
+        """
+        Integrates uploaded encodings into the current manager, ensuring that default and base genes are correctly mapped.
+        
+        Parameters:
+            uploaded_encodings (dict or str): Encodings uploaded from an external source, can be a dictionary or a string that needs parsing.
+            base_genes (list): A list of base genes expected to be present in the uploaded encodings.
+            verbose (bool): If True, prints detailed debug information.
+        """
         if verbose:
             print("Starting integration of uploaded encodings...")
     
@@ -95,6 +136,16 @@ class EncodingManager:
             
 
     def encode(self, genes, verbose=False):
+        """
+        Encodes a list of gene names into their corresponding hash keys.
+        
+        Parameters:
+            genes (list of str): A list of gene names to be encoded.
+            verbose (bool): If True, prints detailed debug information.
+        
+        Returns:
+            list of int: A list of hash keys corresponding to the genes.
+        """
         encoded_list = []
     
         for gene in genes:  # Directly iterate over each gene in the list
@@ -116,6 +167,16 @@ class EncodingManager:
 
     @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
+        """
+        Decodes a tuple of hash keys back into a sequence of gene names.
+        
+        Parameters:
+            encoded_tuple (tuple): A tuple of hash keys representing an encoded gene sequence.
+            verbose (bool): If True, prints detailed debug information.
+        
+        Returns:
+            list of str: A list of gene names decoded from the hash keys.
+        """
         # Convert the encoded tuple back to a list for processing
         stack = list(encoded_tuple)
         decoded_sequence = []
@@ -147,6 +208,16 @@ class EncodingManager:
 
 
     def capture_segment(self, encoded_segment, verbose=False):
+        """
+        Captures a segment of encoded genes, assigning it a unique hash key.
+        
+        Parameters:
+            encoded_segment (list of int): The segment of encoded genes to capture.
+            verbose (bool): If True, prints detailed debug information.
+        
+        Returns:
+            int: The hash key associated with the captured segment.
+        """
         # Encapsulate the encoded segment in a tuple to use as a key
         captured_key = tuple(encoded_segment)
     
@@ -179,6 +250,17 @@ class EncodingManager:
 
     
     def open_segment(self, hash_key, no_delimit=False, verbose=False):
+        """
+        Decompresses a captured segment, optionally including start and end delimiters.
+        
+        Parameters:
+            hash_key (int): The hash key of the captured segment to open.
+            no_delimit (bool): If True, does not include delimiters in the opened segment.
+            verbose (bool): If True, prints detailed debug information.
+        
+        Returns:
+            list of int: The decompressed list of hash keys representing the opened segment.
+        """
         decompressed_codons = []
     
         # Use .get() to safely access the dictionary and avoid KeyError
@@ -214,6 +296,28 @@ class EncodingManager:
     
     
     def generate_random_organism(self, functional_length=100, include_specials=False, special_spacing=10, probability=0.99, verbose=False):
+        """
+        Generates a random organism by randomly selecting genes and potentially including special gene pairs.
+        
+        This method randomly selects genes from the available gene pool to construct an organism's gene sequence.
+        Special gene pairs ('Start' and 'End') can be optionally included at specified intervals within the organism.
+
+        Parameters:
+            functional_length (int): The number of genes to include in the organism, excluding special genes.
+            include_specials (bool): If True, includes special gene pairs ('Start' and 'End') within the organism.
+            special_spacing (int): The minimum number of genes between successive special gene pairs.
+            probability (float): The probability of inserting a special gene pair at any valid position.
+            verbose (bool): If True, prints detailed debug information about the generation process.
+
+        Returns:
+            list of int: A list of hash keys representing the encoded organism, which includes both regular genes
+                         and, optionally, special genes.
+        
+        Notes:
+            The special genes are inserted if the random number generated is less than the specified probability and
+            the spacing between them is maintained as per 'special_spacing'. The functional length of the organism
+            might be extended if special genes are inserted.
+        """
         gene_pool = [gene for gene in self.reverse_encodings if gene not in ['Start', 'End']]
         organism_genes = [random.choice(gene_pool) for _ in range(functional_length)]
         special_gene_indices = set()

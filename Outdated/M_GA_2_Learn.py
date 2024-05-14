@@ -88,10 +88,8 @@ phase_settings = {
 fitness_function = LeadingOnesFitness(max_length=MAX_LENGTH, update_best_func=update_best_organism)
 
 class ExperimentGA(M_E_GA_Base):
-    def __init__(self, phase, cycle, experiment_name, *args, **kwargs):
-        # Formulate the specific experiment name including phase and cycle
-        modified_experiment_name = f"{experiment_name}_Phase_{phase}_Cycle_{cycle}"
-        super().__init__(*args, **kwargs, experiment_name=modified_experiment_name)
+    def __init__(self, phase, experiment_name, *args, **kwargs):
+        super().__init__(*args, **kwargs, experiment_name=experiment_name)
         self.phase = phase
 
     def run_phase(self):
@@ -109,22 +107,24 @@ class ExperimentGA(M_E_GA_Base):
     def load_encodings(self, encodings):
         self.encoding_manager.integrate_uploaded_encodings(encodings, fitness_function.genes)
 
-
 def run_experiment(experiment_name, num_cycles):
     for cycle in range(1, num_cycles + 1):
         print(f"\n--- Starting Experiment Cycle {cycle} ---")
 
         # Run Instructor Phase
-        instructor_ga = ExperimentGA('instructor', cycle, experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute, **common_config, **phase_settings['instructor'])
+        instructor_ga = ExperimentGA('instructor', experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute,
+                                     **common_config, **phase_settings['instructor'])
         instructor_results, instructor_encodings = instructor_ga.run_phase()
 
         # Run Student Phase
-        student_ga = ExperimentGA('student', cycle, experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute, **common_config, **phase_settings['student'])
+        student_ga = ExperimentGA('student', experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute,
+                                  **common_config, **phase_settings['student'])
         student_ga.load_encodings(instructor_encodings)
         student_results, student_encodings = student_ga.run_phase()
 
         # Run ND Learner Phase
-        nd_learner_ga = ExperimentGA('nd_learner', cycle, experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute, **common_config, **phase_settings['nd_learner'])
+        nd_learner_ga = ExperimentGA('nd_learner', experiment_name, genes=fitness_function.genes, fitness_function=fitness_function.compute,
+                                     **common_config, **phase_settings['nd_learner'])
         nd_learner_ga.load_encodings(student_encodings)
         nd_learner_results, _ = nd_learner_ga.run_phase()
 

@@ -88,7 +88,7 @@ class MegaGP:
         return output, self.penalties, self.successful_operations, self.gene_penalties
 
 # Test Case
-input_size = 8
+'''input_size = 8
 mega = MegaGP(input_size)
 organism = ['(', ')', 'var0', 'NOT', '(', 'var1', 'AND', 'var2', ')', '(', ')', 'XOR', '(', 'var3', ')']
 binary_input = [1, 0, 1, 1, 0, 1, 0, 1]
@@ -99,3 +99,4 @@ print("Output:", output)
 print("Penalties:", penalties)
 print("Successful Operations:", successful_operations)
 print("Gene Penalties:", gene_penalties)
+'''

@@ -5,6 +5,12 @@ Created on Thu Mar  7 13:09:43 2024
 @author: Matt Andrews
 """
 
+# Test License Agreement
+# By running this code, you acknowledge and agree to the terms of the LICENSE file
+# provided in the repository. This code is provided solely for the purpose of testing
+# and verification. You are not authorized to use this code for any other purpose.
+
+
 import json
 import datetime
 import random

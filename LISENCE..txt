@@ -1,0 +1,17 @@
+Test License Agreement
+
+By running this code, you acknowledge and agree to the following terms:
+
+1. License Grant: This code is provided solely for the purpose of testing and verification. You are not authorized to use, modify, distribute, or reproduce this code for any other purpose.
+
+2. No Commercial Use: You are prohibited from using this code for any commercial, production, or operational purposes.
+
+3. No Derivative Works: You may not create derivative works based on this code. Any modifications or improvements to the code remain the property of the original author.
+
+4. No Warranty: This code is provided "as is" without any warranties, express or implied. The author makes no representations or warranties regarding the accuracy, completeness, or performance of the code.
+
+5. Limitation of Liability: In no event shall the author be liable for any damages, including but not limited to direct, indirect, incidental, or consequential damages, arising out of the use or inability to use this code.
+
+6. Termination: The author reserves the right to terminate this license at any time. Upon termination, you must immediately cease all use of the code and destroy any copies in your possession.
+
+By running this code, you signify your acceptance of this Test License Agreement.

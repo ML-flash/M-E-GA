@@ -4,6 +4,11 @@ Created on Thu Feb 29 15:48:15 2024
 
 @author: Matt Andrews
 """
+# Test License Agreement
+# By running this code, you acknowledge and agree to the terms of the LICENSE file
+# provided in the repository. This code is provided solely for the purpose of testing
+# and verification. You are not authorized to use this code for any other purpose.
+
 
 import random
 import xxhash

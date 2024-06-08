@@ -81,11 +81,7 @@ This is the experiment that demonstrates Transfer learning. The paramiters of th
 This will set up the project on your local machine. Make sure to follow these steps precisely to ensure a successful installation and setup.
 
 ## How to Use MEGA
-Provide instructions and examples so users/contributors can use the project. This will make it easy for them in case they encounter a problem – they will always have a place to reference what is expected.
 
-You can also make use of visual aids by including materials like screenshots to show examples of the running project and also the structure and design principles used in your project.
-
-Also, if your project will require authentication like passwords or usernames, this is a good section to include the credentials.
 
 ## Credits
 

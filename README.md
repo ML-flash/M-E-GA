@@ -1,38 +1,106 @@
-# M-E-GA
-By running this code, you acknowledge and agree to the terms of the [License Agreement](LICENSE.txt). 
+# Mutable Encoding enabled Genetic Algorithm (MEGA)
 
-
-# Introduction
-
+## Description
 With corporate influence over Artificial Intelligence and Machine Learning growing more and more every day, I believe it is essential for there to be ML projects brought into the sphere of public control and ownership. The Mutable Encoding Enabled Genetic Algorithm (MEGA) is intended as a foundational first step towards the development of advanced Artificial Intelligence as a public asset.
 
-MEGA is a passion project of mine that I have been working on for a very long time. It represents years of thought, consideration, and study; 20 in fact (more than half my life).
+MEGA is a passion project of mine that I have been working on for a very long time. It represents years of thought, consideration, and study; 20 in fact (more than half my life). The aim of MEGA is to bring new ideas into the sphere of Evolutionary Algorithms. Through leveraging these new ideas, I hope to provide advancements in the field such as:
 
-So what's so special about it?
+- Trivialized transfer learning.
+- More biologically inspired computing models.
+- Rapid iteration and deployment through a general-purpose encoding scheme and easily deployable framework.
+- A lower barrier to entry in the form of domain-specific encodings.
+- Providing new approaches to Evolutionary Algorithms in general, offering fresh paths for research and advancement. (hopefully)
 
-Well, MEGA is a GA but not a GA. It includes several elements that I have always found lacking in a traditional GA. Mainly, for an algorithm that is supposed to model evolution to solve problems, traditional GA doesn't do a very good job of employing biology-inspired problem solving. There is much more involved in evolution than just the transfer of genetic information from one organism to another. Biology constructs and preserves structured genetic information in the form of proteins, which themselves consist of smaller structures called exons, and then the next step below that is the individual base pairs of amino acids. Traditional Genetic Algorithms have no way of constructing or preserving the patterns they discover while exploring the search space. In fact, most of the information about the search space is thrown away from one generation to the next.
+## Index
+1. [Description](#description)
+2. [Key Points](#key-points)
+3. [How to Install and Run MEGA](#how-to-install-and-run-mega)
+4. [How to Use the MEGA](#how-to-use-mega)
+5. [Credits](#credits)
+6. [License](#license)
+7. [Badges](#badges)
+8. [How to Contribute to the Project](#how-to-contribute-to-the-project)
+9. [Include Tests](#tests)
 
-MEGA introduces several new ideas that work together to create a fundamentally different approach to doing Genetic Algorithms. As opposed to a complex adaptive system, I view MEGA as a singular adaptive system where the parts come together and work to define and enable the whole.
+## Key Points
+- MEGA takes an entirely different approach to GA, making it both the same and fundamentally different from traditional approaches. It enables a Meta-Evolution of the gene representation. Through the continual capturing, nesting, and refinement of new meta-genes, MEGA enables the GA to learn about the search space in a very real tangible way that can be transferred to a newly initialized GA instance. This provides faster fitness gains that typically exceed the GA they originated from.
+- xxhash is used to generate the hashable encodings. They aren't used in a hash table. I don't know enough about that to get it going. functools is used in the M_E_engine to allow for meta-gene caching using least recently used to enable faster decoding, mitigating the overhead created by nested meta-genes. concurrent is used to facilitate threading when evaluating a population. This helps again with organism decoding and fitness evaluation speed.
+- The main challenges I encountered while developing MEGA were delimiter management. Start and End delimiters have a direction and not respecting that during mutations and crossover causes problems that are sometimes hard to detect. This was a pain, and if you look at the code, most of the helper functions are geared around ensuring delimiters are detected and handled properly. So if you start playing with things and everything seems to work but something is off, pass the verbose=True flag when decoding, and it will print out the values as it's decoding, and you can see if there are mismatched Start, End delimiters.
 
-The new concepts that are introduced:
+## How to Install and Run MEGA
 
-- **Start and End Delimiters:** They work to demarcate regions of a solution that are eligible to be captured to create new meta-genes.
-- **Meta Genes:** A single gene that is a composite of delimited genes after a capture. They can be further nested within other captures to create a nested hierarchy of meta-genes. They should be thought of as a sub-solution.
-- **Capture Mutation:** Capture is a novel mutation that serves as the trigger for the creation of a new meta-gene.
-- **Open Mutation:** Open is a novel mutation that triggers the decompression of a meta-gene back to its pre-capture state. If a meta-gene is opened in an undelimited region, then the delimiters are replaced around it. Otherwise, if a meta-gene is opened inside a delimited region, then there are no delimiters placed because this will disrupt the ordering of delimiters causing issues. Open gives meta-genes the ability to be refined and improved on before being recaptured for use.
-- **Insert/Delete Delimiter Pair Mutations:** These either insert a pair of delimiters or delete a pair of delimiters. Insert does not allow the pairs that it inserts to intrude on another delimiter pair and will either not place the delimiters or place them so as not to disrupt an existing pair.
-- **Point/Insert Mutations:** Point and insert mutations work in the typical way, however when choosing a gene to use, there is a set probability to favor inserting either a meta-gene or a base gene. This is to prevent meta-genes from overwhelming the base genes and thus preventing further exploration of the search space. There is also a kind of aging parameter called Capture_gene_prob (yes, I need a better name for that). It is used so that as the number of meta-genes increases, older genes are less favored for selection, making it more likely that a newer meta-gene will be selected for use. Introducing this helped reduce over-exploring due to the uniform chance of meta-gene selection. This caused a very large fitness distribution within the population, though it didn’t seem to impact the ability to find a new highest fitness individual at regular intervals. Try setting it to 0 and see what happens.
-- **Base Genes:** The initial genes that the solutions decode back into. They are, as of right now, discrete strings only. Yes, this needs further development, but this is what they are at the moment.
+### Prerequisites
+- Ensure you have [Git](https://git-scm.com/) installed on your machine.
+- Make sure you have Python 3.8 or higher installed.
+- xxhash is the only additional dependancy you will need.
 
-These new elements come together to create what I refer to as a Meta Evolution of the gene representation. The meta-genes themselves are subject to selective pressure, in that they can be opened and refined. Meta-genes that do not contribute to fitness are pruned with the organisms that contain them, thus don’t have the opportunity to propagate or be opened and create new meta-genes. This is essentially a second evolutionary process applied to the gene representation. Since the representation is available to be incorporated in the population as a whole, the population not only exists to evolve the solution but to evolve a functional collective genome. This is why I view this as a singular adaptive system (SAS) as opposed to a complex adaptive system (CAS).
 
-The nesting of meta-genes creates a structure that I now know to be called a Directed Acyclic Graph (DAG). This is the hierarchy of meta-genes and is essentially what the algorithm learns about the search space through its lifecycle. This meta-gene structure can be saved and used to initialize another run of the GA, facilitating knowledge transfer. MEGA instances that receive knowledge from a previous run show faster increases in fitness and overall higher fitness levels, showing that the knowledge gained in the previous run is adaptable and can be improved on.
 
-From here, everything operates the same as a traditional Genetic Algorithm.
+## How to Install and Run MEGA
 
-I apologize for updates being a little erratic. I am balancing this between a full-time non-academic job and a family. This is my first open-source project and I am learning every day. I hope that I will have time on my "weekend" this Monday and Tuesday to get things more organized and in line with what is expected out of a professional repository. Thank you for your patience. I hope you have the chance to play around with this more. Documentation and properly commented code will be coming very soon.
+### Prerequisites
+- Ensure you have [Git](https://git-scm.com/) installed on your machine.
+- Make sure you have Anaconda installed.
+- `xxhash` is the only additional dependency you will need.
 
-Thanks,
-Matt
+### Steps to Clone the Repository
 
-I can be reached at avilanch2000@yahoo.com or at the MEGA Discord server [https://discord.gg/jQWRCwrj](https://discord.gg/jQWRCwrj)
+1. **Open your terminal (or Anaconda Prompt)**
+
+2. **Clone the repository**
+   ```sh
+   git clone https://github.com/ML-flash/M-E-GA.git
+   ```
+
+3. **Navigate into the project directory**
+   ```sh
+   cd M-E-GA
+   ```
+
+4. **Create a new conda environment and activate it**
+   ```sh
+   conda create --name mega_env python=3.8
+   conda activate mega_env
+   ```
+
+5. **Install the required dependencies**
+   ```sh
+   conda install -c conda-forge xxhash
+   ```
+
+6. **Run the experiment**
+   ```sh
+   python M_E_GA_single_run.py
+   ```
+
+This will set up the project on your local machine and run the experiment using the provided script. Follow these steps precisely to ensure a successful installation and setup.
+
+Alternativly you can use M_GA_2_Learn.py
+This is the experiment that demonstrates Transfer learning. The paramiters of the instructor dictate the learnign process that is passed to the Student and its a little touchy. Im trying to figure out a reliable way to control the learnign rate but it will involve some research to figure out the best way to accomplish this. So if you are having trouble getting good results play around with the mutation rates. There are a lot of them and they are interdependant. Its not overly sensitive but if you arent getting the intended results ite likely due to mutation rates beign disproportional to eachother. 
+
+This will set up the project on your local machine. Make sure to follow these steps precisely to ensure a successful installation and setup.
+
+## How to Use MEGA
+Provide instructions and examples so users/contributors can use the project. This will make it easy for them in case they encounter a problem – they will always have a place to reference what is expected.
+
+You can also make use of visual aids by including materials like screenshots to show examples of the running project and also the structure and design principles used in your project.
+
+Also, if your project will require authentication like passwords or usernames, this is a good section to include the credentials.
+
+## Credits
+
+
+
+## License
+By running this code, you acknowledge and agree to the terms of the [License Agreement](LICENSE.txt). 
+
+## Badges
+
+
+## How to Contribute to the Project
+
+
+## Tests
+
+
+I can be reached at avilanch2000@yahoo.com or at the MEGA [Discord](https://discord.gg/jQWRCwrj) server.

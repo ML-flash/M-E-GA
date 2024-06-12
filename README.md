@@ -16,11 +16,12 @@ MEGA is a passion project of mine that I have been working on for a very long ti
 2. [Key Points](#key-points)
 3. [How to Install and Run MEGA](#how-to-install-and-run-mega)
 4. [How to Use the MEGA](#how-to-use-mega)
+5. -[Building Fitness Functions](#building-fitness-functions)
 5. [Credits](#credits)
 6. [License](#license)
 7. [Badges](#badges)
 8. [How to Contribute to the Project](#how-to-contribute-to-the-project)
-9. [Include Tests](#tests)
+9. [Tests](#tests)
 
 ## Key Points
 - MEGA takes an entirely different approach to GA, making it both the same and fundamentally different from traditional approaches. It enables a Meta-Evolution of the gene representation. Through the continual capturing, nesting, and refinement of new meta-genes, MEGA enables the GA to learn about the search space in a very real tangible way that can be transferred to a newly initialized GA instance. This provides faster fitness gains that typically exceed the GA they originated from.
@@ -82,6 +83,58 @@ This will set up the project on your local machine. Make sure to follow these st
 
 ## How to Use MEGA
 
+MEGA is designed to be modular and fairly easy to build on. The M_E_Engine is distinct from the M_E_GA_base, which is the Genetic Algorithm interface with the M_E_Engine via the EncodingManager class. Then, there are the individual experiments. These serve as a way to standardize how MEGA is operated. The GA is initialized and run through a user-defined set of processes, giving the ability to handle the population in nuanced ways, i.e., threading or adjusting fitness values. You could also build a simulation around an experiment together with the fitness function and create customized breeding scenarios. Say you are running an ALife simulation, and you have certain conditions where the population will breed. This can be defined in the fitness function and pass pairs back into the GA to breed before again using them within the fitness function simulation. In short, there is a lot of flexibility built into MEGA that allows for very nuanced, user-defined use case scenarios
+### Building Fitness Functions
+The fitness function is a key component of any Genetic Algorithm it is what defines what the GA is doing. MEGA has the fitness function abstracted from the Main GA allowing for the use of custom fitness functions that are easily created using following the below walk through. 
+
+   ```sh
+class LeadingOnesFitness:
+   def __init__(self, max_length, update_best_func):
+        self.max_length = max_length
+        self.update_best = update_best_func  # Store the passed function for updating the best organism
+        self.genes = ['0', '1']  # Specific genes for this fitness function
+  ```
+We begin with the Class definition. You can use any name for the call you just need to change it in the experiment you run it with. As of right now Fitness functions follow a specific format. 
+ Since MEGA uses mutable encoding where the organism length is variable `max_length` is passed in so that the maximum length of the organism can be tracked and properly handled without needing to be explicitly set or modified in the fitness function with every new experiment.
+
+`update_best_func` is a function that is defined in the experiment and is passed in on initialisation. It allows a simple straight forward way to keep track of the new best organism as it appears through the run. This is especially helpful when running an experiment that uses transfer learning As this allows you to track the Maximum fitness individual across all learning phases of the algorithm.
+
+`self.genes = ['0', '1']`  At the moment MEGA uses genes in the form of a list of strings. Genes can be custom defined here for use within the compute method. This is how organisms are scored in as a fitness value. A solution is a list of genes that represent the values being optimized for by the GA this will be discussed below in the compute method.
+
+Alternatively if you need dynamically generated genes you could run a function at initialisation and return the string gene values.
+```sh
+    def compute(self, encoded_individual, ga_instance):
+        # Decode the individual
+        decoded_individual = ga_instance.decode_organism(encoded_individual)
+
+        # Initialize fitness score
+        fitness_score = 0
+
+        # Count the number of leading '1's until the first '0'
+        for gene in decoded_individual:
+            if gene == '1':
+                fitness_score += 1
+            else:
+                break  # Stop counting at the first '0'
+
+        # Calculate the penalty
+        if len(decoded_individual) < self.max_length:
+            penalty = 1.008 ** (self.max_length - len(decoded_individual))
+        else:
+            penalty = len(decoded_individual) - self.max_length
+
+        # Compute final fitness score
+        final_fitness = fitness_score - penalty
+
+        # Update the best organism using the passed function
+        self.update_best(encoded_individual, final_fitness, verbose=True)
+
+        # Return the final fitness score after applying the penalty
+        return final_fitness
+   ```
+
+
+
 
 ## Credits
 
@@ -99,4 +152,4 @@ By running this code, you acknowledge and agree to the terms of the [License Agr
 ## Tests
 
 
-I can be reached at avilanch2000@yahoo.com or at the MEGA [Discord](https://discord.gg/jQWRCwrj) server.
+I can be reached at matthew.andrews2024@gmail.com or at the MEGA [Discord](https://discord.gg/jQWRCwrj) server.

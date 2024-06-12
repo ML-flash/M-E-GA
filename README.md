@@ -16,7 +16,7 @@ MEGA is a passion project of mine that I have been working on for a very long ti
 2. [Key Points](#key-points)
 3. [How to Install and Run MEGA](#how-to-install-and-run-mega)
 4. [How to Use the MEGA](#how-to-use-mega)
-5. -[Building Fitness Functions](#building-fitness-functions)
+    -[Building Fitness Functions](#building-fitness-functions)
 5. [Credits](#credits)
 6. [License](#license)
 7. [Badges](#badges)

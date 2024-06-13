@@ -16,12 +16,13 @@ MEGA is a passion project of mine that I have been working on for a very long ti
 2. [Key Points](#key-points)
 3. [How to Install and Run MEGA](#how-to-install-and-run-mega)
 4. [How to Use the MEGA](#how-to-use-mega)
-    -[Building Fitness Functions](#building-fitness-functions)
+5. -[Building Fitness Functions](#building-fitness-functions)
 5. [Credits](#credits)
 6. [License](#license)
 7. [Badges](#badges)
 8. [How to Contribute to the Project](#how-to-contribute-to-the-project)
 9. [Tests](#tests)
+10. [Buy Me a Coffee](https://ko-fi.com/mlflash)
 
 ## Key Points
 - MEGA takes an entirely different approach to GA, making it both the same and fundamentally different from traditional approaches. It enables a Meta-Evolution of the gene representation. Through the continual capturing, nesting, and refinement of new meta-genes, MEGA enables the GA to learn about the search space in a very real tangible way that can be transferred to a newly initialized GA instance. This provides faster fitness gains that typically exceed the GA they originated from.
@@ -102,11 +103,17 @@ We begin with the Class definition. You can use any name for the call you just n
 `self.genes = ['0', '1']`  At the moment MEGA uses genes in the form of a list of strings. Genes can be custom defined here for use within the compute method. This is how organisms are scored in as a fitness value. A solution is a list of genes that represent the values being optimized for by the GA this will be discussed below in the compute method.
 
 Alternatively if you need dynamically generated genes you could run a function at initialisation and return the string gene values.
+
 ```sh
     def compute(self, encoded_individual, ga_instance):
         # Decode the individual
         decoded_individual = ga_instance.decode_organism(encoded_individual)
+```
+`ga_instance.decode_organism(encoded_individual)` takes in the encoded organism and returns the decoded individual for fitness evaluation. There is a `format` flag. Pass it as `True` to remove delimiters from the decoded organism. 
 
+From here you can use the `decoded_individual` to calculate your fitness sore and return it as an int or float.
+
+```sh
         # Initialize fitness score
         fitness_score = 0
 
@@ -132,6 +139,9 @@ Alternatively if you need dynamically generated genes you could run a function a
         # Return the final fitness score after applying the penalty
         return final_fitness
    ```
+This is the essentials of building a MEGA compatable fitness function.
+
+Coming soon we will be a link to a break down of designing a custom experiment and eventually a Break down of the M_E_GA_Base Class. 
 
 
 
@@ -149,7 +159,11 @@ By running this code, you acknowledge and agree to the terms of the [License Agr
 ## How to Contribute to the Project
 
 
+
 ## Tests
 
 
 I can be reached at matthew.andrews2024@gmail.com or at the MEGA [Discord](https://discord.gg/jQWRCwrj) server.
+
+
+[Buy Me a Coffee](https://ko-fi.com/mlflash)

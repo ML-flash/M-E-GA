@@ -163,7 +163,7 @@ By running this code, you acknowledge and agree to the terms of the [License Agr
 ## Tests
 
 
-I can be reached at matthew.andrews2024@gmail.com or at the MEGA [Discord](https://discord.gg/sY7UfFMQ) server.
+I can be reached at matthew.andrews2024@gmail.com or at the MEGA [Discord](https://discord.gg/VXA3Jj3hcv) server.
 
 
 [Buy Me a Coffee](https://ko-fi.com/mlflash)

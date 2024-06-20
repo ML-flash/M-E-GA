@@ -5,6 +5,7 @@ class MegaGP:
         self.operator_priority = {'NOT': 3, 'AND': 2, 'OR': 1, 'XOR': 1}
         self.penalties = 0
         self.gene_penalties = 0  # Initialize gene penalties for nesting
+        self.genes = 0
         self.successful_operations = 0  # Initialize successful operation counter
 
     def receive_input(self, binary_input):
@@ -28,23 +29,25 @@ class MegaGP:
             elif token == '(':
                 stack.append(token)
                 nesting_level += 1
-                self.gene_penalties += nesting_level ** 1.1  # Increment gene penalties slightly exponentially
+                self.genes += 1
+                self.gene_penalties += nesting_level ** 1.01  # Increment gene penalties slightly exponentially
             elif token == ')':
                 if stack and stack[-1] == '(':
                     stack.pop()  # Remove '('
-                    self.penalties += 1  # Penalty for empty parentheses
+                    self.penalties += 2  # Penalty for empty parentheses
                 else:
                     while stack and stack[-1] != '(':
                         output.append(stack.pop())
                     if stack:
                         stack.pop()
                         nesting_level -= 1
-                self.gene_penalties += nesting_level ** 1.1  # Still apply nesting penalty
+                self.genes += 2.5
+                self.gene_penalties += nesting_level ** 1.01  # Still apply nesting penalty
         # Empty the stack and check for unmatched '('
         while stack:
             top = stack.pop()
             if top == '(':
-                self.penalties += 1  # Penalty for unmatched '('
+                self.penalties += 2  # Penalty for unmatched '('
             else:
                 output.append(top)
         return output
@@ -88,7 +91,7 @@ class MegaGP:
         return output, self.penalties, self.successful_operations, self.gene_penalties
 
 # Test Case
-'''input_size = 8
+input_size = 8
 mega = MegaGP(input_size)
 organism = ['(', ')', 'var0', 'NOT', '(', 'var1', 'AND', 'var2', ')', '(', ')', 'XOR', '(', 'var3', ')']
 binary_input = [1, 0, 1, 1, 0, 1, 0, 1]
@@ -99,4 +102,4 @@ print("Output:", output)
 print("Penalties:", penalties)
 print("Successful Operations:", successful_operations)
 print("Gene Penalties:", gene_penalties)
-'''
+

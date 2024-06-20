@@ -8,9 +8,9 @@ from M_E_GA_fitness_funcs import LeadingOnesFitness  # Import the modified fitne
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 NUM_CYCLES = 1
-MAX_GENERATIONS = 10
-MAX_LENGTH = 300
-MAX_INDIVIDUAL_LENGTH = 100
+MAX_GENERATIONS = 150
+MAX_LENGTH = 400
+MAX_INDIVIDUAL_LENGTH = 40
 
 best_organism = {
     "genome": None,
@@ -30,7 +30,7 @@ common_config = {
     'max_generations': MAX_GENERATIONS,
     'delimiters': False,
     'delimiter_space': 3,
-    'logging': True,
+    'logging': False,
     'generation_logging': False,
     'mutation_logging': False,
     'crossover_logging': False,
@@ -41,43 +41,43 @@ common_config = {
 # Phase specific settings
 phase_settings = {
     "instructor": {
-        'mutation_prob': 0.10,
-        'delimited_mutation_prob': 0.07,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.001,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.80,
+        'mutation_prob': 0.30,
+        'delimited_mutation_prob': 0.06,
+        'open_mutation_prob': 0.009,
+        'capture_mutation_prob': 0.003,
+        'delimiter_insert_prob': 0.002,
+        'crossover_prob': 0.50,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.60,
-        'capture_gene_prob': 0.1,
+        'base_gene_prob': 0.50,
+        'capture_gene_prob': 0.2,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "student": {
-        'mutation_prob': 0.10,
+        'mutation_prob': 0.30,
         'delimited_mutation_prob': 0.07,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.002,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.80,
+        'open_mutation_prob': 0.009,
+        'capture_mutation_prob': 0.003,
+        'delimiter_insert_prob': 0.002,
+        'crossover_prob': 0.50,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.35,
-        'capture_gene_prob': 0.1,
+        'base_gene_prob': 0.40,
+        'capture_gene_prob': 0.2,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150
     },
     "nd_learner": {
-        'mutation_prob': 0.02,
-        'delimited_mutation_prob': 0.01,
-        'open_mutation_prob': 0.007,
-        'capture_mutation_prob': 0.001,
-        'delimiter_insert_prob': 0.004,
-        'crossover_prob': 0.80,
+        'mutation_prob': 0.05,
+        'delimited_mutation_prob': 0.05,
+        'open_mutation_prob': 0.00,
+        'capture_mutation_prob': 0.00,
+        'delimiter_insert_prob': 0.00,
+        'crossover_prob': 0.90,
         'elitism_ratio': 0.6,
-        'base_gene_prob': 0.40,
-        'capture_gene_prob': 0.15,
+        'base_gene_prob': 0.5,
+        'capture_gene_prob': 0.2,
         'max_individual_length': MAX_INDIVIDUAL_LENGTH,
         'population_size': 700,
         'num_parents': 150

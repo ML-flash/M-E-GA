@@ -1,12 +1,14 @@
+import random
+
 class MegaGP:
     def __init__(self, input_size):
         self.input_size = input_size
         self.variables = {f"var{i}": None for i in range(input_size)}
-        self.operator_priority = {'NOT': 3, 'AND': 2, 'OR': 1, 'XOR': 1}
+        self.operators = ['NOT', 'AND', 'OR', 'XOR']
         self.penalties = 0
-        self.gene_penalties = 0  # Initialize gene penalties for nesting
+        self.gene_penalties = 0
         self.genes = 0
-        self.successful_operations = 0  # Initialize successful operation counter
+        self.successful_operations = 0
 
     def receive_input(self, binary_input):
         if len(binary_input) != self.input_size:
@@ -15,91 +17,73 @@ class MegaGP:
             self.variables[f"var{i}"] = bit
 
     def parse_organism(self, organism):
-        output = []
-        stack = []
-        nesting_level = 0  # Track nesting level
-        for token in organism:
-            if token in self.variables:  # Variable
-                output.append(token)
-            elif token in self.operator_priority:  # Operator
-                while (stack and stack[-1] != '(' and
-                       self.operator_priority[stack[-1]] >= self.operator_priority[token]):
-                    output.append(stack.pop())
-                stack.append(token)
-            elif token == '(':
-                stack.append(token)
-                nesting_level += 1
-                self.genes += 1
-                self.gene_penalties += nesting_level ** 1.01  # Increment gene penalties slightly exponentially
-            elif token == ')':
-                if stack and stack[-1] == '(':
-                    stack.pop()  # Remove '('
-                    self.penalties += 2  # Penalty for empty parentheses
-                else:
-                    while stack and stack[-1] != '(':
-                        output.append(stack.pop())
-                    if stack:
-                        stack.pop()
-                        nesting_level -= 1
-                self.genes += 2.5
-                self.gene_penalties += nesting_level ** 1.01  # Still apply nesting penalty
-        # Empty the stack and check for unmatched '('
-        while stack:
-            top = stack.pop()
-            if top == '(':
-                self.penalties += 2  # Penalty for unmatched '('
-            else:
-                output.append(top)
-        return output
+        self.genes = len(organism)
+        return organism
 
     def evaluate_expression(self, expression):
         stack = []
         for token in expression:
             if token in self.variables:
                 stack.append(self.variables[token])
-            elif token in self.operator_priority:
+            elif token == 'NOT':
                 try:
-                    if token == 'NOT':
-                        operand = stack.pop()
-                        stack.append(int(not operand))
-                        self.successful_operations += 1
-                    else:
-                        right = stack.pop()
-                        left = stack.pop()
-                        result = self.calculate_operation(token, [left, right])
-                        stack.append(result)
-                        self.successful_operations += 1
+                    operand = stack.pop()
+                    stack.append(int(not operand))
+                    self.successful_operations += 1
                 except IndexError:
                     self.penalties += 1
                     stack.append(0)
+            elif token in ['AND', 'OR', 'XOR']:
+                try:
+                    right = stack.pop()
+                    left = stack.pop()
+                    if token == 'AND':
+                        result = left and right
+                    elif token == 'OR':
+                        result = left or right
+                    elif token == 'XOR':
+                        result = left ^ right
+                    stack.append(result)
+                    self.successful_operations += 1
+                except IndexError:
+                    self.penalties += 1
+                    stack.append(0)
+            else:
+                self.penalties += 1
+                stack.append(0)
         return stack.pop() if stack else 0
 
-    def calculate_operation(self, operator, operands):
-        if operator == 'NOT':
-            return int(not operands[0])
-        elif operator == 'AND':
-            return operands[0] and operands[1]
-        elif operator == 'OR':
-            return operands[0] or operands[1]
-        elif operator == 'XOR':
-            return operands[0] ^ operands[1]
-
     def evaluate_organism(self, organism, binary_input):
+        self.penalties = 0
+        self.gene_penalties = 0
+        self.genes = 0
+        self.successful_operations = 0
         self.receive_input(binary_input)
         parsed_expression = self.parse_organism(organism)
         output = self.evaluate_expression(parsed_expression)
-        return output, self.penalties, self.successful_operations, self.gene_penalties
+        return output, self.penalties, self.successful_operations, self.genes
+
+    def generate_random_organism(self, length):
+        variables = list(self.variables.keys())
+        organism = random.choices(variables + self.operators, k=length)
+        return organism
 
 # Test Case
 input_size = 8
+organism_length = 15
 mega = MegaGP(input_size)
-organism = ['(', ')', 'var0', 'NOT', '(', 'var1', 'AND', 'var2', ')', '(', ')', 'XOR', '(', 'var3', ')']
-binary_input = [1, 0, 1, 1, 0, 1, 0, 1]
-output, penalties, successful_operations, gene_penalties = mega.evaluate_organism(organism, binary_input)
+
+# Generate a random organism
+random_organism = mega.generate_random_organism(organism_length)
+binary_input = [random.randint(0, 1) for _ in range(input_size)]
+
+# Evaluate the random organism
+output, penalties, successful_operations, genes = mega.evaluate_organism(random_organism, binary_input)
 
 # Output Results
+print("Random Organism:", ['var2', 'var3', 'OR', 'AND', 'var0', 'NOT', 'var0', 'var0', 'OR', 'var2', 'OR', 'var0', 'var2', 'var1', 'NOT', 'var1', 'var1', 'var5', 'var1', 'var1', 'var2', 'NOT', 'var0', 'XOR', 'var1', 'var0', 'OR', 'var2'])
+print("Binary Input:", binary_input)
 print("Output:", output)
 print("Penalties:", penalties)
 print("Successful Operations:", successful_operations)
-print("Gene Penalties:", gene_penalties)
-
+print("Genes:", genes)

@@ -30,10 +30,9 @@ class MegaGPFitnessFunction:
         return best_selection
 
     def extract_genes(self):
-        variables = list(self.mega_gp.variables.keys())
-        operators = list(self.mega_gp.operator_priority.keys())
-        parentheses = ['(', ')']
-        return variables + operators + parentheses
+        variables = list(self.mega_gp.variables)
+        operators = list(self.mega_gp.operators)
+        return variables + operators
 
     def generate_mux_truth_table(self, selection_lines):
         num_inputs = 2 ** selection_lines
@@ -54,13 +53,10 @@ class MegaGPFitnessFunction:
         total_correct_outputs = 0
         total_correct = 0
         total_penalties = 0
-        total_tests = len(self.truth_table)
-
-        # Weights to balance the influence of correct outputs and penalties
-        weight_correct = 100  # Weight for correct outputs
-        weight_penalty = 0.001  # Weight for penalties
+        total_tests = 0
 
         for inp, selection_value, expected_output in self.truth_table:
+            total_tests +=1
             # Generate binary input based on selection lines and data lines
             binary_input = list(selection_value) + list(inp)
 
@@ -68,15 +64,16 @@ class MegaGPFitnessFunction:
             output, penalties, successful_operations, gene_penalties = self.mega_gp.evaluate_organism(
                 decoded_individual, binary_input)
 
+
             # Calculate net penalties
-            net_penalties = penalties + gene_penalties - successful_operations
+            net_penalties = penalties + (gene_penalties/1.4) - successful_operations
 
             # Check correctness of the output
             if output == expected_output:
-                total_correct_outputs += 4
+                total_correct_outputs += 10
                 total_correct += 1
-            else:
-                total_penalties += net_penalties
+
+            total_penalties += net_penalties
 
             # Verbose output
             if verbose:
@@ -85,15 +82,20 @@ class MegaGPFitnessFunction:
                 print(f"Penalties: {penalties}, Gene Penalties: {gene_penalties}, Successful Operations: {successful_operations}")
                 print(f"Net Penalties: {net_penalties}")
 
-        # Fitness score calculation
-        correct_output_score = weight_correct * total_correct_outputs
-        penalty_score = weight_penalty * total_penalties
+        # Calculate the average penalties per test
+        avg_penalties = total_penalties / total_tests
 
-        fitness_score = (correct_output_score - penalty_score) / total_tests
+        # Fitness score calculation
+        correct_output_score = total_correct_outputs
+        penalty_score = avg_penalties
+
+
+        fitness_score = correct_output_score - penalty_score
 
         if verbose:
             print(f"Total Correct Outputs: {total_correct}/{total_tests}")
             print(f"Total Penalties: {total_penalties}")
+            print(f"Average Penalties: {avg_penalties}")
             print(f"Correct Output Score: {correct_output_score}, Penalty Score: {penalty_score}")
             print(f"Final Fitness Score: {fitness_score}")
 

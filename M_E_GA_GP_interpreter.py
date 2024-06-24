@@ -29,7 +29,7 @@ class MegaGP:
                 try:
                     operand = stack.pop()
                     stack.append(int(not operand))
-                    self.successful_operations += 1
+                    self.successful_operations += .6
                 except IndexError:
                     self.penalties += 1
                     stack.append(0)

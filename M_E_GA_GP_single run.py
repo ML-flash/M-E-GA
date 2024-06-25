@@ -8,7 +8,7 @@ from itertools import product
 import math
 
 
-INPUT_SIZE = 6  # Set based on the expected number of input bits for MegaGP
+INPUT_SIZE = 9  # Set based on the expected number of input bits for MegaGP
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
@@ -37,14 +37,14 @@ fitness_function = MegaGPFitnessFunction(INPUT_SIZE, update_best_func=update_bes
 
 config = {
     'mutation_prob': 0.10,
-    'delimited_mutation_prob': 0.05,
+    'delimited_mutation_prob': 0.06,
     'open_mutation_prob': 0.007,
     'capture_mutation_prob': 0.002,
     'delimiter_insert_prob': 0.004,
     'crossover_prob': 0.50,
     'elitism_ratio': 0.6,
-    'base_gene_prob': 0.45,
-    'capture_gene_prob': 0.20,
+    'base_gene_prob': 0.40,
+    'capture_gene_prob': 0.0,
     'max_individual_length': 30,
     'population_size': 700,
     'num_parents': 150,

@@ -8,7 +8,7 @@ from itertools import product
 import math
 
 
-INPUT_SIZE = 9  # Set based on the expected number of input bits for MegaGP
+INPUT_SIZE = 9
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
@@ -36,7 +36,7 @@ def evaluate_population(population, encoding_manager, num_threads=16):
 fitness_function = MegaGPFitnessFunction(INPUT_SIZE, update_best_func=update_best_organism)
 
 config = {
-    'mutation_prob': 0.10,
+    'mutation_prob': 0.15,
     'delimited_mutation_prob': 0.06,
     'open_mutation_prob': 0.007,
     'capture_mutation_prob': 0.002,
@@ -48,12 +48,12 @@ config = {
     'max_individual_length': 30,
     'population_size': 700,
     'num_parents': 150,
-    'max_generations': 500,
+    'max_generations': 200,
     'delimiters': False,
     'delimiter_space': 2,
-    'logging': False,
-    'generation_logging': False,
-    'mutation_logging': True,
+    'logging': True,
+    'generation_logging': True,
+    'mutation_logging': False,
     'crossover_logging': False,
     'individual_logging': False,
     'seed': GLOBAL_SEED

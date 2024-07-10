@@ -44,7 +44,7 @@ common_config = {
 # Phase specific settings
 phase_settings = {
     "instructor": {
-        'mutation_prob': 0.30,
+        'mutation_prob': 0.10,
         'delimited_mutation_prob': 0.06,
         'open_mutation_prob': 0.009,
         'capture_mutation_prob': 0.003,
@@ -58,7 +58,7 @@ phase_settings = {
         'num_parents': 150
     },
     "student": {
-        'mutation_prob': 0.30,
+        'mutation_prob': 0.10,
         'delimited_mutation_prob': 0.07,
         'open_mutation_prob': 0.009,
         'capture_mutation_prob': 0.003,

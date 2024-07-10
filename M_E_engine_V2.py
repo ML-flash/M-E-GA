@@ -26,8 +26,8 @@ class EncodingManager:
         self.add_gene('End', predefined_id=2)
 
     def generate_hash_key(self, identifier):
-        # Use xxhash's 32-bit version to generate a shorter hash
-        return xxhash.xxh32_intdigest(str(identifier))
+        # Use xxhash's 64-bit version to generate a longer hash
+        return xxhash.xxh64_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
         # Use predefined_id for default genes or increment gene_counter for new genes

@@ -124,7 +124,7 @@ class IDontKnow:
                     if 'position' in item and item['position'] == new_pos and self.can_add_item_to_sack(item, sack):
                         self.collect_item(item, sack, verbose=verbose)  # Collect the item if it fits in the sack
 
-                fitness_score += 2  # Reward for each valid move
+                fitness_score += .5  # Reward for each valid move
                 visited_positions.add(new_pos)  # Mark the new position as visited
                 x, y, z = new_pos  # Update the current position
 

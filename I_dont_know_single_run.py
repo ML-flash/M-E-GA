@@ -4,9 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from I_Dont_Know_FF import IDontKnow
 
-VOLUME = 5
-NUM_ITEMS = 1000
-NUM_GROUPS = 100
+VOLUME = 15
+NUM_ITEMS = 2000
+NUM_GROUPS = 7
 
 
 GLOBAL_SEED = None
@@ -37,16 +37,16 @@ fitness_function = IDontKnow(volume = VOLUME, num_items= NUM_ITEMS, num_groups= 
 genes = fitness_function.genes
 
 config = {
-    'mutation_prob': 0.15,
+    'mutation_prob': 0.10,
     'delimited_mutation_prob': 0.05,
     'open_mutation_prob': 0.007,
     'capture_mutation_prob': 0.002,
-    'delimiter_insert_prob': 0.005,
-    'crossover_prob': 0.50,
+    'delimiter_insert_prob': 0.004,
+    'crossover_prob': 0.40,
     'elitism_ratio': 0.6,
-    'base_gene_prob': 0.45,
-    'capture_gene_prob': 0.25,
-    'max_individual_length': 30,
+    'base_gene_prob': 0.40,
+    'capture_gene_prob': 0.1,
+    'max_individual_length': 25,
     'population_size': 500,
     'num_parents': 150,
     'max_generations': 300,

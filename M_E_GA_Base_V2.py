@@ -826,6 +826,7 @@ class M_E_GA_Base:
                 "CROSSOVER_PROB": self.crossover_prob,
                 "ELITISM_RATIO": self.elitism_ratio,
                 "BASE_GENE_PROB": self.base_gene_prob,
+                "CAPTURED_GENE_PROB": self.capture_gene_prob,
                 "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
                 "POPULATION_SIZE": self.population_size,
                 "NUM_PARENTS": self.num_parents,
@@ -833,6 +834,7 @@ class M_E_GA_Base:
                 "DELIMITERS": self.delimiters,
                 "DELIMITER_SPACE": self.delimiter_space,
                 "seed": self.seed
+
 
             },
                 # Include other sections of the final_log as needed

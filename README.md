@@ -78,7 +78,7 @@ MEGA is a passion project of mine that I have been working on for a very long ti
 This will set up the project on your local machine and run the experiment using the provided script. Follow these steps precisely to ensure a successful installation and setup.
 
 Alternativly you can use M_GA_2_Learn.py
-This is the experiment that demonstrates Transfer learning. The paramiters of the instructor dictate the learnign process that is passed to the Student and its a little touchy. Im trying to figure out a reliable way to control the learnign rate but it will involve some research to figure out the best way to accomplish this. So if you are having trouble getting good results play around with the mutation rates. There are a lot of them and they are interdependant. Its not overly sensitive but if you arent getting the intended results ite likely due to mutation rates beign disproportional to eachother. 
+This is the experiment that demonstrates Transfer learning. The parameters of the instructor dictate the learning process that is passed to the Student and its a little touchy. I'm trying to figure out a reliable way to control the learning rate but it will involve some research to figure out the best way to accomplish this. So if you are having trouble getting good results play around with the mutation rates. There are a lot of them and they are interdependent. Its not overly sensitive but if you aren't getting the intended results it's likely due to mutation rates being disproportional to each other. 
 
 This will set up the project on your local machine. Make sure to follow these steps precisely to ensure a successful installation and setup.
 

@@ -16,24 +16,10 @@ class IDontKnow:
                                 random.randint(self.volume, self.volume),
                                 random.randint(-self.volume, self.volume))
 
-        all_positions = [(x, y, z) for x in range(-volume, volume + 1)
-                         for y in range(-volume, volume + 1)
-                         for z in range(-volume, volume + 1)]
-
-        # Randomly shuffle the positions
-        random.shuffle(all_positions)
-
-        # Ensure that the number of items does not exceed the number of available positions
-        if num_items > len(all_positions):
-            raise ValueError("Number of items exceeds the number of available positions in the given volume.")
-
-        # Assign each item a unique position from the shuffled list
-        self.items = self.create_items()
-        for item, position in zip(self.items, all_positions[:num_items]):
-            item['position'] = position
-
     def create_items(self, properties=('size', 'weight', 'density', 'value')):
+
         items = []
+
         for item_id in range(self.num_items):
             item = {
                 'id': item_id,
@@ -44,20 +30,31 @@ class IDontKnow:
                     'density': random.uniform(0.1, 10.0),
                     'value': random.uniform(0.1, 80.0),
                 },
-                'reaction_strength': random.uniform(0.5, 5.5),
-                'interactions': []
+                'reaction_strength': random.uniform(0.5, 5.5),  # Define the reaction strength with a random value
+                'interactions': []  # Initialize an empty list for interactions
             }
+
+            # Determine the number of groups this item will interact with (up to the total number of groups)
             num_interactions = random.randint(0, self.num_groups - 1)
-            interacting_groups = random.sample([group for group in range(self.num_groups) if group != item['group']], num_interactions)
+
+            # Randomly select the groups for interaction, ensuring no repeats and not including the item's own group
+            interacting_groups = random.sample([group for group in range(self.num_groups) if group != item['group']],
+                                               num_interactions)
+
+            # Define interactions for each selected group
             for target_group in interacting_groups:
                 interaction = {
                     'target_group': target_group,
                     'property': random.choice(properties),
                     'direction': random.choice(['increase', 'decrease']),
-                    'magnitude': random.uniform(0.1, 0.5),
+                    'magnitude': random.uniform(0.1, 0.5),  # Adjust magnitude range as needed
                 }
+                # Add the defined interaction to the item's interactions list
                 item['interactions'].append(interaction)
+
+            # Add the fully defined item to the items list
             items.append(item)
+
         return items
 
     def can_add_item_to_sack(self, item, sack):
@@ -124,7 +121,7 @@ class IDontKnow:
                     if 'position' in item and item['position'] == new_pos and self.can_add_item_to_sack(item, sack):
                         self.collect_item(item, sack, verbose=verbose)  # Collect the item if it fits in the sack
 
-                fitness_score += .5  # Reward for each valid move
+                fitness_score += 1  # Reward for each valid move
                 visited_positions.add(new_pos)  # Mark the new position as visited
                 x, y, z = new_pos  # Update the current position
 

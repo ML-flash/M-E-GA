@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import defaultdict
@@ -48,7 +47,7 @@ plt.figure(figsize=(20, 15))
 nx.draw(G, pos, with_labels=True, labels=labels, node_size=2000, node_color='skyblue', font_size=10, font_weight='bold', arrows=True)
 plt.title("Gene Relationship Graph with Orders")
 plt.show()
-=======
+
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import defaultdict
@@ -98,4 +97,4 @@ plt.figure(figsize=(20, 15))
 nx.draw(G, pos, with_labels=True, labels=labels, node_size=2000, node_color='skyblue', font_size=10, font_weight='bold', arrows=True)
 plt.title("Gene Relationship Graph with Orders")
 plt.show()
->>>>>>> origin/main
+

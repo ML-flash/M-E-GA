@@ -50,9 +50,9 @@ pip install `--upgrade pip`
 `pip install M_E_GA2` This command installs the latest version of M_E_GA along with its dependencies.
 
 ### Verifying Installation
-`python -c "import M_E_GA2; print('M_E_GA2 installed successfully!')"`
+`python -c "import M_E_GA; print('M_E_GA installed successfully!')"`
 
-If there are no errors and you see the success message, M_E_GA2 is ready for use.
+If there are no errors and you see the success message, M_E_GA is ready for use.
 
 
 ## How to Use MEGA

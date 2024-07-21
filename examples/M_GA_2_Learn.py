@@ -1,5 +1,5 @@
 import random
-from M_E_GA2 import M_E_GA_Base
+from M_E_GA import M_E_GA_Base
 from M_E_GA_fitness_funcs import LeadingOnesFitness
 # Constants and configurations
 GLOBAL_SEED = None

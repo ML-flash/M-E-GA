@@ -47,12 +47,12 @@ pip install `--upgrade pip`
 
 #### Step 2: Install M_E_GA using pip
 
-`pip install M_E_GA` This command installs the latest version of M_E_GA along with its dependencies.
+`pip install M_E_GA2` This command installs the latest version of M_E_GA along with its dependencies.
 
 ### Verifying Installation
-`python -c "import M_E_GA; print('M_E_GA installed successfully!')"`
+`python -c "import M_E_GA2; print('M_E_GA2 installed successfully!')"`
 
-If there are no errors and you see the success message, M_E_GA is ready for use.
+If there are no errors and you see the success message, M_E_GA2 is ready for use.
 
 
 ## How to Use MEGA
@@ -112,9 +112,9 @@ From here you can use the `decoded_individual` to calculate your fitness sore an
         # Return the final fitness score after applying the penalty
         return final_fitness
    ```
-This is the essentials of building a MEGA compatable fitness function.
+This is the essentials of building a MEGA compatible fitness function.
 
-Coming soon we will be a link to a break down of designing a custom experiment and eventually a Break down of the M_E_GA_Base Class. 
+Coming soon we will be a link to a break-down of designing a custom experiment and eventually a Break down of the M_E_GA_Base Class. 
 
 
 

@@ -15,7 +15,6 @@ import functools
 
 
 class EncodingManager:
-
     def __init__(self):
         # Initialize with default genes 'Start' and 'End'
         self.encodings = {}
@@ -112,7 +111,7 @@ class EncodingManager:
                 # Print the gene as it is, directly
                 print(f"Encoding gene '{gene}' to hash key {hash_key}.")
 
-        return encoded_list  # Return the list of hash keys    
+        return encoded_list  # Return the list of hash keys
 
     @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
@@ -230,3 +229,229 @@ class EncodingManager:
         return encoded_organism
 
 
+import unittest
+
+
+class TestEncodingManager(unittest.TestCase):
+    def setUp(self):
+        self.manager = EncodingManager()
+
+    def test_add_and_encode_genes(self):
+        genes = ['A', 'B', 'C']
+        for gene in genes:
+            self.manager.add_gene(gene, verbose=True)
+
+        # Encode a list of genes, including 'End' as part of the list
+        for gene in genes:
+            encoded = tuple(self.manager.encode([gene, 'End'], verbose=True))
+            decoded = self.manager.decode(encoded, verbose=True)
+            # Expected decoded string should include 'End' as a separate element
+            expected_decoded_str = gene + ' End'
+            decoded_str = ' '.join(decoded)
+            self.assertEqual(decoded_str, expected_decoded_str,
+                             f"Encoded sequence should decode back to '{expected_decoded_str}'.")
+
+    def test_decode_unknown_hash_key(self):
+        # Generate a hash key that is likely not in use by adding a unique gene and then incrementing the counter
+        self.manager.add_gene('UniqueGene', verbose=False)
+        unknown_hash_key = self.manager.gene_counter + 1  # Assuming gene_counter is still accessible in this context
+
+        # Ensure the argument is a tuple
+        encoded = tuple([unknown_hash_key])
+
+        # Call decode with the correct tuple argument
+        decoded = self.manager.decode(encoded, verbose=True)
+
+        # Check if 'Unknown' is in the decoded list
+        self.assertIn('Unknown', decoded, "Unknown hash key should decode to 'Unknown'.")
+
+
+class TestEncodingManagerCapturedSegments(unittest.TestCase):
+    def setUp(self):
+        self.manager = EncodingManager()
+
+    def test_capture_and_decode(self):
+        self.manager.add_gene('A')
+        self.manager.add_gene('B')
+
+        # The encode method should return a list of hash keys; ensure it's being called correctly
+        encoded_segment = self.manager.encode(['A', 'B'],
+                                              verbose=True)  # Ensure 'A' and 'B' are in a list if they represent individual genes
+
+        captured_codon = self.manager.capture_segment(encoded_segment, verbose=True)
+
+        # Wrap captured_codon in a list, then convert to tuple for decode
+        decoded_sequence = self.manager.decode(tuple([captured_codon]), verbose=True)
+
+        # Join the decoded list to form a string for comparison
+        decoded_str = ' '.join(decoded_sequence)
+        self.assertEqual(decoded_str, 'A B', "The decoded sequence should match the original segment.")
+
+    def test_explicit_nested_capture_and_decoding(self):
+        genes = ['1', '2', '3', '4', '5']
+        for gene in genes:
+            self.manager.add_gene(gene, verbose=True)
+
+        encoded_segment = []
+        for gene in genes:
+            # Ensure each gene is passed as a single-element list to encode
+            encoded_gene = self.manager.encode([gene], verbose=True)
+            encoded_segment.extend(encoded_gene)
+
+            # Capture the current segment
+            captured_codon = self.manager.capture_segment(encoded_segment, verbose=True)
+
+            # Decode using a tuple containing the captured codon
+            decoded_sequence = self.manager.decode(tuple([captured_codon]), verbose=True)
+
+            # Join the decoded list to form a string for comparison
+            decoded_str = ' '.join(decoded_sequence)
+
+            # The expected decoded string should match the sequence of genes captured so far
+            expected_decoded_str = ' '.join(genes[:len(decoded_sequence)])
+            self.assertEqual(decoded_str, expected_decoded_str, f"Decoded sequence should match {expected_decoded_str}")
+
+    def test_duplicate_segment_capture(self):
+        self.manager.add_gene('X')
+        self.manager.add_gene('Y')
+
+        # Ensure genes are passed as a list to the encode method
+        encoded_segment_1 = self.manager.encode(['X', 'Y'], verbose=True)
+        captured_codon_1 = self.manager.capture_segment(encoded_segment_1, verbose=True)
+
+        encoded_segment_2 = self.manager.encode(['X', 'Y'], verbose=True)
+        captured_codon_2 = self.manager.capture_segment(encoded_segment_2, verbose=True)
+
+        # Verify that the same hash key is reused for the duplicate segment
+        self.assertEqual(captured_codon_1, captured_codon_2, "Duplicate segments should reuse the same hash key.")
+
+        # Convert captured codon to a tuple and decode
+        decoded_sequence_1 = self.manager.decode(tuple([captured_codon_1]), verbose=True)
+        decoded_sequence_2 = self.manager.decode(tuple([captured_codon_2]), verbose=True)
+
+        # Join the decoded list to form a string for comparison
+        decoded_str_1 = ' '.join(decoded_sequence_1)
+        decoded_str_2 = ' '.join(decoded_sequence_2)
+
+        self.assertEqual(decoded_str_1, 'X Y', "The decoded sequence should match the original segment 'X Y'.")
+        self.assertEqual(decoded_str_1, decoded_str_2, "Decoded sequences from duplicate captures should be identical.")
+
+
+class TestEncodingManagerNestedCaptures(unittest.TestCase):
+    def setUp(self):
+        self.manager = EncodingManager()
+
+    def test_nested_segment_capture_with_multiple_genes(self):
+        genes = ['X', 'Y', 'Z', 'W']
+        for gene in genes:
+            self.manager.add_gene(gene, verbose=True)
+
+        # Encode and capture the initial segment 'X Y'. Ensure genes are passed as a list to encode.
+        initial_encoded_segment = self.manager.encode(['X', 'Y'], verbose=True)
+        initial_capture_codon = self.manager.capture_segment(initial_encoded_segment, verbose=True)
+
+        # Encode the next part 'Z W' and create a nested segment that includes the hash key of the initial captured segment
+        next_encoded_segment = self.manager.encode(['Z', 'W'], verbose=True)
+        nested_encoded_segment = [initial_capture_codon] + next_encoded_segment
+
+        # Capture the nested segment
+        nested_capture_codon = self.manager.capture_segment(nested_encoded_segment, verbose=True)
+
+        # Decode the nested capture to test if the nested structure is preserved. Ensure captured codon is in a tuple.
+        decoded_nested_sequence = self.manager.decode(tuple([nested_capture_codon]), verbose=True)
+
+        # Join the decoded list to form a string for comparison
+        decoded_str = ' '.join(decoded_nested_sequence)
+        self.assertEqual(decoded_str, 'X Y Z W', "Nested decoded segment should match 'X Y Z W'")
+
+
+class TestOpenSegment(unittest.TestCase):
+    def setUp(self):
+        self.encoding_manager = EncodingManager()
+        # Add genes and capture segments as needed
+        self.genes = ['A', 'B', 'C', 'D']
+        for gene in self.genes:
+            self.encoding_manager.add_gene(gene)
+        # Encode genes to create segments
+        self.single_segment = [self.encoding_manager.encode(gene)[0] for gene in self.genes[:3]]  # ['A', 'B', 'C']
+        self.single_captured_hash_key = self.encoding_manager.capture_segment(self.single_segment)
+        # For nested capture, include the captured hash key in a new segment with 'D'
+        self.nested_segment = [self.single_captured_hash_key] + [self.encoding_manager.encode(self.genes[3])[0]]
+        self.nested_captured_hash_key = self.encoding_manager.capture_segment(self.nested_segment)
+
+    def test_single_level_capture_and_open_with_delimiters(self):
+        # Open with delimiters
+        opened_segment = self.encoding_manager.open_segment(self.single_captured_hash_key, no_delimit=False)
+        expected_segment = [self.encoding_manager.reverse_encodings['Start']] + self.single_segment + [
+            self.encoding_manager.reverse_encodings['End']]
+        self.assertEqual(opened_segment, expected_segment, "Opened segment with delimiters does not match expected.")
+
+    def test_single_level_capture_and_open_without_delimiters(self):
+        # Open without delimiters
+        opened_segment = self.encoding_manager.open_segment(self.single_captured_hash_key, no_delimit=True)
+        self.assertEqual(opened_segment, self.single_segment,
+                         "Opened segment without delimiters does not match expected.")
+
+    def test_nested_capture_and_open(self):
+        # This test checks that open_segment only opens the next layer of nesting
+        genes = ['X', 'Y', 'Z', 'W']
+        for gene in genes:
+            self.encoding_manager.add_gene(gene, verbose=True)
+
+        # Encode and capture the initial segment 'X Y'
+        initial_encoded_segment = self.encoding_manager.encode('X Y', verbose=True)
+        initial_capture_hash_key = self.encoding_manager.capture_segment(initial_encoded_segment, verbose=True)
+
+        # Create a nested segment that includes the hash key of the initial captured segment
+        nested_encoded_segment = [initial_capture_hash_key] + self.encoding_manager.encode('Z W', verbose=True)
+
+        # Capture the nested segment
+        nested_capture_hash_key = self.encoding_manager.capture_segment(nested_encoded_segment, verbose=True)
+
+        # Open the nested capture to check if only the next layer is decompressed
+        opened_nested_segment = self.encoding_manager.open_segment(nested_capture_hash_key, no_delimit=True)
+
+        # Expected behavior is to decompress only the next layer, showing the initial capture hash key followed by 'Z' and 'W'
+        expected_nested_segment = [initial_capture_hash_key] + [self.encoding_manager.encode(gene)[0] for gene in
+                                                                genes[2:]]
+
+        self.assertEqual(opened_nested_segment, expected_nested_segment,
+                         "Opened nested segment should decompress only the next layer.")
+
+
+class TestEncodingIntegrationAndGeneSelection(unittest.TestCase):
+    def setUp(self):
+        # Initialize the EncodingManager with predefined encodings using hash keys
+        self.initial_manager = EncodingManager()
+        self.genes = ['A', 'B', 'C', 'D']
+        for gene in self.genes:
+            self.initial_manager.add_gene(gene)
+        # Encode genes to create segments and capture one to test integration
+        self.segment = [self.initial_manager.encode(gene)[0] for gene in self.genes[:2]]
+        self.captured_hash_key = self.initial_manager.capture_segment(self.segment)
+        # Define the probability of selecting a base gene over a captured segment
+        self.base_gene_prob = 0.8  # You can adjust this value as needed
+
+    def select_gene(self, manager):
+        # Select a gene based on a probability, favoring base genes but occasionally choosing captured segments
+        if random.random() < self.base_gene_prob or not manager.captured_segments:
+            base_gene = random.choice(self.genes)
+            gene_hash_key = manager.reverse_encodings[base_gene]
+        else:
+            captured_segment = random.choice(list(manager.captured_segments.keys()))
+            gene_hash_key = manager.captured_segments[captured_segment]
+        return gene_hash_key
+
+    def test_integration_and_gene_selection(self):
+        # Reinitialize EncodingManager and integrate encodings, including base genes and captured segments
+        new_manager = EncodingManager()
+        new_manager.integrate_uploaded_encodings(self.initial_manager.encodings, self.genes)
+
+        # Test gene selection to cover both base genes and captured segments
+        for _ in range(10):
+            selected_gene_hash_key = self.select_gene(new_manager)
+            self.assertTrue(
+                selected_gene_hash_key in new_manager.encodings or
+                selected_gene_hash_key in new_manager.captured_segments.values(),
+                "Selected gene should be from either base genes or captured segments."
+            )

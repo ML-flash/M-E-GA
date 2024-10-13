@@ -15,11 +15,12 @@ import datetime
 import random
 import os
 import concurrent.futures
-from .M_E_Engine import EncodingManager
+from M_E_Engine import EncodingManager
 
 
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function, mutation_prob=0.01, delimited_mutation_prob=0.01,
+                 delimit_delete_prob=0.01,  # Added delimit_delete_prob here
                  open_mutation_prob=0.0001, capture_mutation_prob=0.00001,
                  delimiter_insert_prob=0.00001, crossover_prob=0.50,
                  elitism_ratio=0.06, base_gene_prob=0.98,
@@ -46,6 +47,7 @@ class M_E_GA_Base:
         # Set configuration parameters
         self.mutation_prob = mutation_prob
         self.delimited_mutation_prob = delimited_mutation_prob
+        self.delimit_delete_prob = delimit_delete_prob  # Assigned delimit_delete_prob
         self.open_mutation_prob = open_mutation_prob
         self.capture_mutation_prob = capture_mutation_prob
         self.delimiter_insert_prob = delimiter_insert_prob
@@ -413,36 +415,27 @@ class M_E_GA_Base:
         if self.logging and not log_enhanced:
             self.log_organism_state("before_mutation", organism, generation)
         i = 0
-        detailed_logs = []  # Initialize detailed logs collection if enhanced logging is used
+        detailed_logs = []
 
         while i < len(organism):
-            original = organism[:]  # Capture the state before mutation
-            if mutation is None:
-                mutation_type = self.select_mutation_type(i, organism)
+            original = organism[:]
+            depth = self.calculate_depth(organism, i)
+            gene = organism[i]
+            start_codon = self.encoding_manager.reverse_encodings['Start']
+            end_codon = self.encoding_manager.reverse_encodings['End']
+
+            # Decide on mutation probability based on context
+            if depth > 0:
+                mutation_prob = self.delimited_mutation_prob
             else:
-                mutation_type = mutation
+                mutation_prob = self.mutation_prob
 
-            # Handle the various types of mutations
-            if mutation_type != 'None':
-                if mutation_type == 'insertion':
-                    organism, i = self.perform_insertion(organism, i)
-                elif mutation_type == 'point':
-                    organism, i = self.perform_point_mutation(organism, i)
-                elif mutation_type == 'swap':
-                    organism, i = self.perform_swap(organism, i)
-                elif mutation_type == 'delimit_delete':
-                    organism, i = self.perform_delimit_delete(organism, i)
-                elif mutation_type == 'deletion':
-                    organism, i = self.perform_deletion(organism, i)
-                elif mutation_type == 'capture':
-                    organism, i = self.perform_capture(organism, i)
-                elif mutation_type == 'open':
-                    organism, i = self.perform_open(organism, i, no_delimit=False)
-                elif mutation_type == 'open_no_delimit':
-                    organism, i = self.perform_open(organism, i, no_delimit=True)
-                elif mutation_type == 'insert_delimiter_pair':
-                    organism, i = self.insert_delimiter_pair(organism, i)
-
+            # Decide whether to mutate
+            if random.random() <= mutation_prob:
+                # Select mutation type
+                mutation_type = self.select_mutation_type(i, organism, depth)
+                # Apply the mutation
+                organism, i = self.apply_mutation(organism, i, mutation_type)
                 # Collect mutation details if enhanced logging is enabled
                 if log_enhanced:
                     detailed_logs.append({
@@ -452,50 +445,101 @@ class M_E_GA_Base:
                         "after": organism[:],
                         "index": i
                     })
+            else:
+                i += 1
 
-            i = max(0, min(i + 1, len(organism)))
-
-        # Optionally return detailed logs along with the organism if enhanced logging is enabled
         if log_enhanced:
             return organism, detailed_logs
         else:
             return organism
 
-    def select_mutation_type(self, index, organism):
+    def select_mutation_type(self, index, organism, depth):
         gene = organism[index]
         start_codon = self.encoding_manager.reverse_encodings['Start']
         end_codon = self.encoding_manager.reverse_encodings['End']
 
-        # Determine if the gene is within a delimited section by calculating the depth
+        mutation_choices = []
+        mutation_weights = []
+
+        # If gene is a delimiter
+        if gene in {start_codon, end_codon}:
+            # Decide whether to perform 'delimit_delete' based on its probability
+            if random.random() < self.delimit_delete_prob:
+                mutation_choices = ['delimit_delete']
+                mutation_weights = [1.0]  # Only 'delimit_delete' is chosen
+            else:
+                mutation_choices = ['swap']
+                mutation_weights = [1.0]  # Only 'swap' is chosen
+        else:
+            # Not a delimiter
+            if depth > 0:
+                # Inside delimited region
+                mutation_choices = ['point', 'swap', 'insertion', 'deletion', 'capture', 'open_no_delimit']
+                mutation_weights = [
+                    1.0,  # point mutation
+                    1.0,  # swap mutation
+                    1.0,  # insertion
+                    1.0,  # deletion
+                    self.capture_mutation_prob,  # capture mutation
+                    self.open_mutation_prob  # open_no_delimit mutation
+                ]
+            else:
+                # Outside delimited region
+                mutation_choices = ['point', 'swap', 'insertion', 'deletion', 'insert_delimiter_pair', 'open']
+                mutation_weights = [
+                    1.0,  # point mutation
+                    1.0,  # swap mutation
+                    1.0,  # insertion
+                    1.0,  # deletion
+                    self.delimiter_insert_prob,  # insert_delimiter_pair mutation
+                    self.open_mutation_prob  # open mutation
+                ]
+
+        # Normalize the weights to sum to 1
+        if not gene in {start_codon, end_codon}:
+            total_weight = sum(mutation_weights)
+            normalized_probs = [w / total_weight for w in mutation_weights]
+            mutation_type = random.choices(mutation_choices, weights=normalized_probs, k=1)[0]
+        else:
+            # For delimiter genes, weights are already normalized
+            mutation_type = random.choices(mutation_choices, weights=mutation_weights, k=1)[0]
+
+        return mutation_type
+
+    def apply_mutation(self, organism, index, mutation_type):
+        if mutation_type == 'insertion':
+            organism, index = self.perform_insertion(organism, index)
+        elif mutation_type == 'point':
+            organism, index = self.perform_point_mutation(organism, index)
+        elif mutation_type == 'swap':
+            organism, index = self.perform_swap(organism, index)
+        elif mutation_type == 'delimit_delete':
+            organism, index = self.perform_delimit_delete(organism, index)
+        elif mutation_type == 'deletion':
+            organism, index = self.perform_deletion(organism, index)
+        elif mutation_type == 'capture':
+            organism, index = self.perform_capture(organism, index)
+        elif mutation_type == 'open':
+            organism, index = self.perform_open(organism, index, no_delimit=False)
+        elif mutation_type == 'open_no_delimit':
+            organism, index = self.perform_open(organism, index, no_delimit=True)
+        elif mutation_type == 'insert_delimiter_pair':
+            organism, index = self.insert_delimiter_pair(organism, index)
+        else:
+            index += 1  # Move to next gene if mutation type is unrecognized
+
+        return organism, index
+
+    def calculate_depth(self, organism, index):
+        start_codon = self.encoding_manager.reverse_encodings['Start']
+        end_codon = self.encoding_manager.reverse_encodings['End']
         depth = 0
-        for i, codon in enumerate(organism[:index + 1]):
+        for codon in organism[:index + 1]:
             if codon == start_codon:
                 depth += 1
             elif codon == end_codon:
                 depth -= 1
-
-        # Special case mutations with independent probabilities
-        if depth > 0 and random.random() <= self.capture_mutation_prob:
-            return 'capture'
-        if gene not in {start_codon, end_codon} and random.random() <= self.open_mutation_prob:
-            return 'open_no_delimit' if depth > 0 else 'open'
-        if depth == 0 and gene not in {start_codon, end_codon} and random.random() <= self.delimiter_insert_prob:
-            return 'insert_delimiter_pair'
-
-        # Select mutation based on context
-        mutation_prob = self.delimited_mutation_prob if depth > 0 else self.mutation_prob
-        if random.random() > mutation_prob:
-            return 'None'  # No mutation occurs
-
-        # Mutation choices based on gene type and depth
-        if gene in {start_codon, end_codon}:
-            mutation_choices = ['delimit_delete', 'swap', ]
-        elif depth > 0:
-            mutation_choices = ['swap', 'point', 'insertion', 'deletion']
-        else:
-            mutation_choices = ['swap', 'point', 'insertion', 'deletion']
-
-        return random.choice(mutation_choices)
+        return depth
 
     def insert_delimiter_pair(self, organism, index):
         mutation_log = {
@@ -779,13 +823,6 @@ class M_E_GA_Base:
             self.current_generation = generation
             self.start_new_generation_logging(self.current_generation)
 
-            # Initialize a new log entry for this generation
-
-            self.current_generation = generation  # Update current generation
-
-            # Initialize a new log entry for this generation
-            self.start_new_generation_logging(self.current_generation)
-
             # Callback before fitness evaluation
             if self.before_fitness_evaluation:
                 self.before_fitness_evaluation(self)
@@ -817,28 +854,26 @@ class M_E_GA_Base:
         # Compile final logs including initial configuration and outcomes
         print(self.encoding_manager.encodings)
         if self.logging:
-            final_log = {"initial_configuration": {
-                "MUTATION_PROB": self.mutation_prob,
-                "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
-                "OPEN_MUTATION_PROB": self.open_mutation_prob,
-                "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
-                "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
-                "CROSSOVER_PROB": self.crossover_prob,
-                "ELITISM_RATIO": self.elitism_ratio,
-                "BASE_GENE_PROB": self.base_gene_prob,
-                "CAPTURED_GENE_PROB": self.capture_gene_prob,
-                "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
-                "POPULATION_SIZE": self.population_size,
-                "NUM_PARENTS": self.num_parents,
-                "MAX_GENERATIONS": self.max_generations,
-                "DELIMITERS": self.delimiters,
-                "DELIMITER_SPACE": self.delimiter_space,
-                "seed": self.seed
-
-
-            },
-                # Include other sections of the final_log as needed
-
+            final_log = {
+                "initial_configuration": {
+                    "MUTATION_PROB": self.mutation_prob,
+                    "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
+                    "DELIMIT_DELETE_PROB": self.delimit_delete_prob,  # Added DELIMIT_DELETE_PROB
+                    "OPEN_MUTATION_PROB": self.open_mutation_prob,
+                    "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
+                    "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
+                    "CROSSOVER_PROB": self.crossover_prob,
+                    "ELITISM_RATIO": self.elitism_ratio,
+                    "BASE_GENE_PROB": self.base_gene_prob,
+                    "CAPTURED_GENE_PROB": self.capture_gene_prob,
+                    "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
+                    "POPULATION_SIZE": self.population_size,
+                    "NUM_PARENTS": self.num_parents,
+                    "MAX_GENERATIONS": self.max_generations,
+                    "DELIMITERS": self.delimiters,
+                    "DELIMITER_SPACE": self.delimiter_space,
+                    "seed": self.seed
+                },
                 "final_population": self.population,
                 "final_fitness_scores": self.fitness_scores,
                 "genes": self.genes,
@@ -854,3 +889,13 @@ class M_E_GA_Base:
             log_filename = f"{log_folder}/{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
             with open(log_filename, 'w') as log_file:
                 json.dump(final_log, log_file, indent=4)
+
+    # No changes below this line
+
+
+'''Changes fixed bug in logging causing generations to be logged twice one empty and the other with the data. Was causing issues
+and overall just getting in the way. 
+
+Refactored mutations the previous structure was preventing the probabilities from being effective. Special mutations
+were applied first causing normal mutations to be under represented. not everything is weighted so there is only one probability 
+roll to apply mutations per gene where the weight of a given mutation is set according to its probability.'''

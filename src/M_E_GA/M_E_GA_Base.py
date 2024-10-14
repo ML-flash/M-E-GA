@@ -15,7 +15,7 @@ import datetime
 import random
 import os
 import concurrent.futures
-from M_E_Engine import EncodingManager
+from .M_E_Engine import EncodingManager
 
 
 class M_E_GA_Base:

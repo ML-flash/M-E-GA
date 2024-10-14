@@ -20,8 +20,8 @@ from M_E_Engine import EncodingManager
 
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function, mutation_prob=0.01, delimited_mutation_prob=0.01,
-                 delimit_delete_prob=0.01,  # Added delimit_delete_prob here
-                 open_mutation_prob=0.0001, capture_mutation_prob=0.00001,
+                 delimit_delete_prob=0.01, open_mutation_prob=0.0001,
+                 capture_mutation_prob=0.00001,
                  delimiter_insert_prob=0.00001, crossover_prob=0.50,
                  elitism_ratio=0.06, base_gene_prob=0.98,
                  max_individual_length=6, population_size=400,
@@ -31,8 +31,7 @@ class M_E_GA_Base:
                  crossover_logging=False, individual_logging=False,
                  experiment_name=None, encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
-                 before_generation_finalize=None, capture_gene_prob=0, **kwargs):  # Added capture_gene_prob here
-        # Directly use the provided genes list for the encoding manager without assuming a specific structure like 'gene['id']'
+                 before_generation_finalize=None, capture_gene_prob=0, **kwargs):
         self.genes = genes
         self.fitness_function = fitness_function
         self.logging = logging
@@ -47,7 +46,7 @@ class M_E_GA_Base:
         # Set configuration parameters
         self.mutation_prob = mutation_prob
         self.delimited_mutation_prob = delimited_mutation_prob
-        self.delimit_delete_prob = delimit_delete_prob  # Assigned delimit_delete_prob
+        self.delimit_delete_prob = delimit_delete_prob
         self.open_mutation_prob = open_mutation_prob
         self.capture_mutation_prob = capture_mutation_prob
         self.delimiter_insert_prob = delimiter_insert_prob
@@ -858,7 +857,7 @@ class M_E_GA_Base:
                 "initial_configuration": {
                     "MUTATION_PROB": self.mutation_prob,
                     "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
-                    "DELIMIT_DELETE_PROB": self.delimit_delete_prob,  # Added DELIMIT_DELETE_PROB
+                    "DELIMIT_DELETE_PROB": self.delimit_delete_prob,
                     "OPEN_MUTATION_PROB": self.open_mutation_prob,
                     "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
                     "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
@@ -898,4 +897,5 @@ and overall just getting in the way.
 
 Refactored mutations the previous structure was preventing the probabilities from being effective. Special mutations
 were applied first causing normal mutations to be under represented. not everything is weighted so there is only one probability 
-roll to apply mutations per gene where the weight of a given mutation is set according to its probability.'''
+roll to apply mutations per gene where the weight of a given mutation is set according to its probability. Added 
+delimit_delete_prob'''

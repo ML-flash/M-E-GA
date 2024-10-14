@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='M_E_GA',
+    name='M-E-GA2',
     version='1.0.0-b1',
     author='Matt Andrews',
     author_email='Matthew.Andrews2024@gmail.com',

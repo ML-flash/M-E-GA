@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: M-E-GA2
-Version: 1.0.0b1
+Version: 1.0.0b2
 Summary: Package includes the M_E_Engine and the M_E_GA_Base together these classes facilitate the development of Mutable Encoding enables Genetic Algorithms.
 Home-page: https://github.com/ML-flash/M-E-GA
 Author: Matt Andrews

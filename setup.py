@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='M-E-GA2',
-    version='1.0.0-b1',
+    version='1.0.0-b2',
     author='Matt Andrews',
     author_email='Matthew.Andrews2024@gmail.com',
     description='Package includes the M_E_Engine and the M_E_GA_Base together these classes facilitate the development'

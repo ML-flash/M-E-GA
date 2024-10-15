@@ -3,7 +3,14 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
--  Next release will include deleting Meta Genes from the M_E_Engine in a LRU ( Leasr Recently Used) order. Still a work in progress.
+-  Next release will include deleting Meta Genes from the M_E_Engine in a LRU ( Least Recently Used) order. Still a work in progress.
+
+## [1.0.0b2] - 2024-10-15
+### Changed
+- **Fixed a broken relative import that snuck in and prevented the M_E_GA_Base from importing the M_E_Engine. Repackaging and re-uploading everything
+
+### Notes
+- No changes were made to the `M_E_Engine` in this release; all updates were focused on `M_E_GA_Base`.
 
 ## [1.0.0b1] - 2024-10-14
 ### Changed

@@ -1,5 +1,5 @@
 import unittest
-from M_E_GA.M_E_engine import EncodingManager
+from M_E_GA.M_E_Engine import EncodingManager
 
 
 class TestEncodingManager(unittest.TestCase):

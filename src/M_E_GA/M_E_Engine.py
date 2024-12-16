@@ -8,19 +8,28 @@ Created on Thu Feb 29 15:48:15 2024
 # By running this code, you acknowledge and agree to the terms of the LICENSE file
 # provided in the repository. 
 
-
 import random
 import xxhash
 import functools
+from collections import OrderedDict
 
 
 class EncodingManager:
-    def __init__(self):
+    def __init__(self, lru_cache_size=1000):
         # Initialize with default genes 'Start' and 'End'
         self.encodings = {}
         self.reverse_encodings = {}
         self.meta_genes = []  # Renamed from captured_segments
         self.gene_counter = 3  # Start the counter from 3 after 'Start' and 'End'
+
+        # LRU cache for metagenes
+        self.lru_cache_size = lru_cache_size
+        self.metagene_usage = OrderedDict()
+
+        # Deletion management
+        self.deletion_basket = {}  # {hash_key: generation_count}
+        self.unused_encodings = []  # Pool of available encoding slots
+        self.current_generation = 0
 
         # Add default delimiters with predefined unique IDs
         self.add_gene('Start', predefined_id=1)
@@ -31,59 +40,38 @@ class EncodingManager:
         return xxhash.xxh64_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
-        """
-        Adds a new gene to the encodings.
-
-        Args:
-            gene (str): The gene to add.
-            verbose (bool): If True, prints confirmation.
-            predefined_id (int, optional): If provided, uses this as the hash key identifier.
-        """
-        # Use predefined_id for default genes or increment gene_counter for new genes
-        identifier = predefined_id if predefined_id is not None else self.gene_counter
-
         if gene in self.reverse_encodings:
             if verbose:
                 print(f"Gene '{gene}' is already added.")
             return
 
-        # Generate hash key based on the unique identifier
-        hash_key = self.generate_hash_key(identifier)
+        if self.unused_encodings and predefined_id is None:
+            hash_key = self.unused_encodings.pop()
+        else:
+            identifier = predefined_id if predefined_id is not None else self.gene_counter
+            hash_key = self.generate_hash_key(identifier)
+            if predefined_id is None:
+                self.gene_counter += 1
 
         self.encodings[hash_key] = gene
         self.reverse_encodings[gene] = hash_key
         if verbose:
             print(f"Added gene '{gene}' with hash key {hash_key}.")
 
-        # Increment the counter for the next gene, if not using predefined_id
-        if predefined_id is None:
-            self.gene_counter += 1
+        return hash_key
 
     def integrate_uploaded_encodings(self, uploaded_encodings, base_genes, verbose=False):
-        """
-        Integrates uploaded encodings into the existing encoding manager.
-
-        Args:
-            uploaded_encodings (dict or str): Encodings to integrate.
-            base_genes (list): List of base genes.
-            verbose (bool): If True, prints detailed information.
-        """
         if verbose:
             print("Starting integration of uploaded encodings...")
 
         if isinstance(uploaded_encodings, str):
-            # Parse the string into a dictionary assuming format "key:value,key:value"
             uploaded_encodings = {int(k): v for k, v in (item.split(':') for item in uploaded_encodings.split(','))}
             if verbose:
                 print("Uploaded encodings after parsing:", uploaded_encodings)
 
-        # Identify the hash keys for default genes 'Start' and 'End' from the initial manager
         start_key = self.reverse_encodings.get('Start')
         end_key = self.reverse_encodings.get('End')
-        if verbose:
-            print(f"Default gene 'Start' hash key: {start_key}, 'End' hash key: {end_key}")
 
-        # Integrate base and default genes along with meta genes
         for key, value in uploaded_encodings.items():
             if value in base_genes or key in [start_key, end_key]:
                 if value not in self.reverse_encodings or key in [start_key, end_key]:
@@ -91,80 +79,61 @@ class EncodingManager:
                     self.reverse_encodings[value] = key
                     if verbose:
                         print(f"Integrated gene '{value}' with key '{key}'.")
-            elif isinstance(value, tuple):  # Handle meta genes
+            elif isinstance(value, tuple):
+                # Store the tuple in encodings and track the key in meta_genes
                 self.encodings[key] = value
-                self.meta_genes.append(key)  # Append to the list
+                self.meta_genes.append(key)  # Track metagene key
+                self.metagene_usage[key] = True  # Initialize usage tracking
                 if verbose:
                     print(f"Integrated meta gene '{value}' with key '{key}'.")
             else:
                 if verbose:
-                    print(f"Skipping gene '{value}' with key '{key}' as it does not match expected base genes or default genes.")
+                    print(f"Skipping gene '{value}' with key '{key}'.")
 
-        # Update gene counter to avoid conflicts
         max_hash_key = max(self.encodings.keys(), default=0)
         self.gene_counter = max(self.gene_counter, max_hash_key + 1)
-        if verbose:
-            print("Final updated gene counter:", self.gene_counter)
 
     def encode(self, genes, verbose=False):
-        """
-        Encodes a list of genes into their corresponding hash keys.
-
-        Args:
-            genes (list): List of gene strings to encode.
-            verbose (bool): If True, prints encoding details.
-
-        Returns:
-            list: List of hash keys representing the encoded genes.
-        """
         encoded_list = []
-
-        for gene in genes:  # Directly iterate over each gene in the list
-            # No conversion, direct retrieval
+        for gene in genes:
             hash_key = self.reverse_encodings.get(gene)
             if hash_key is None:
                 if verbose:
-                    # Print the gene as it is, without assuming it's a string or any other type
                     print(f"Gene '{gene}' is not recognized.")
-                continue  # Skip unrecognized genes but continue processing
-
-            encoded_list.append(hash_key)  # Add the hash key to the encoded list
-
+                continue
+            encoded_list.append(hash_key)
             if verbose:
-                # Print the gene as it is, directly
                 print(f"Encoding gene '{gene}' to hash key {hash_key}.")
+        return encoded_list
 
-        return encoded_list  # Return the list of hash keys
-
+    @functools.lru_cache(maxsize=1000)
     @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
         """
         Decodes a tuple of hash keys back into their gene sequences.
-
         Args:
             encoded_tuple (tuple): Tuple of hash keys to decode.
             verbose (bool): If True, prints decoding details.
-
         Returns:
             list: List of decoded gene strings.
         """
-        # Convert the encoded tuple back to a list for processing
+        if not encoded_tuple:
+            return []
+
         stack = list(encoded_tuple)
         decoded_sequence = []
 
         while stack:
-            hash_key = stack.pop(0)  # Pop the first item (hash key) for decoding
-
+            hash_key = stack.pop(0)
             if hash_key in self.encodings:
                 value = self.encodings[hash_key]
+                self.update_metagene_usage(hash_key)  # Track usage for metagene management
 
-                if isinstance(value, tuple):  # Handling meta genes
+                if isinstance(value, tuple):
                     if verbose:
                         print(f"Decompressing meta gene with hash key {hash_key}")
-                    # Push the contents of the meta gene to the start of the stack for decoding
                     stack = list(value) + stack
                 else:
-                    # Direct mapping of hash key to gene, append the value to the decoded list
                     decoded_sequence.append(value)
                     if verbose:
                         print(f"Decoding hash key {hash_key} to '{value}'.")
@@ -175,25 +144,113 @@ class EncodingManager:
 
         return decoded_sequence
 
+    def update_metagene_usage(self, hash_key):
+        """Update LRU cache for metagene usage"""
+        if hash_key not in self.meta_genes:
+            return
+
+        if hash_key in self.metagene_usage:
+            self.metagene_usage.move_to_end(hash_key)
+        else:
+            # If we're at capacity, move least recently used to deletion basket
+            if len(self.metagene_usage) >= self.lru_cache_size:
+                lru_key, _ = self.metagene_usage.popitem(last=False)
+                if lru_key not in self.deletion_basket:
+                    self.deletion_basket[lru_key] = 0
+                    print(f"Moving metagene {lru_key} to deletion basket due to LRU cache overflow")
+
+            self.metagene_usage[hash_key] = True
+
+    def start_new_generation(self):
+        """Called at the start of each new generation"""
+        self.current_generation += 1
+
+        print(f"\nProcessing deletion basket at start of generation {self.current_generation}:")
+        if not self.deletion_basket:
+            print("  Deletion basket is empty")
+            return
+
+        to_delete = []
+        # First pass - identify what will be deleted
+        for hash_key, gen_count in self.deletion_basket.items():
+            if gen_count >= 2:
+                to_delete.append(hash_key)
+                print(f"  Metagene {hash_key} marked for deletion (unused for {gen_count} generations)")
+            else:
+                new_count = gen_count + 1
+                self.deletion_basket[hash_key] = new_count
+                print(f"  Metagene {hash_key} count increased from {gen_count} to {new_count}")
+
+        # Second pass - perform deletions
+        for hash_key in to_delete:
+            print(f"\nDeleting metagene {hash_key}:")
+            print(f"  Original contents: {self.encodings.get(hash_key, 'Unknown')}")
+            decoded = self.open_metagene(hash_key, no_delimit=True)
+            print(f"  Decoded contents: {decoded}")
+            self.delete_metagene(hash_key)
+            print(f"  Added hash key {hash_key} to unused_encodings")
+            print(f"  Current unused_encodings pool size: {len(self.unused_encodings)}")
+
+    def delete_metagene(self, hash_key):
+        """Delete a metagene and properly handle its dependencies."""
+        if hash_key not in self.meta_genes:
+            return
+
+        contents = self.encodings.get(hash_key, ())
+        processed = set()
+
+        def process_dependencies(current_key):
+            if current_key in processed or current_key not in self.meta_genes:
+                return [current_key] if current_key not in processed else []
+
+            processed.add(current_key)
+            current_contents = self.encodings.get(current_key, ())
+            expanded = []
+
+            for gene in current_contents:
+                if gene in self.deletion_basket and gene in self.encodings:
+                    expanded.extend(process_dependencies(gene))
+                else:
+                    expanded.append(gene)
+
+            return expanded
+
+        # Process all dependencies
+        expanded_contents = process_dependencies(hash_key)
+
+        # Update references in other metagenes (only if they contain this key)
+        for meta_key in [k for k in self.meta_genes if k != hash_key]:
+            meta_contents = list(self.encodings.get(meta_key, ()))
+            if hash_key in meta_contents:
+                new_contents = []
+                for content in meta_contents:
+                    if content == hash_key:
+                        new_contents.extend(expanded_contents)
+                    else:
+                        new_contents.append(content)
+                self.encodings[meta_key] = tuple(new_contents)
+
+        # Clean up
+        self.meta_genes.remove(hash_key)
+        self.metagene_usage.pop(hash_key, None)
+        self.deletion_basket.pop(hash_key, None)
+        self.encodings.pop(hash_key, None)
+
+        if hash_key not in self.unused_encodings:
+            self.unused_encodings.append(hash_key)
     def capture_metagene(self, encoded_segment, verbose=False):
-        """
-        Captures a segment of encoded genes as a Meta Gene.
+        if not encoded_segment:
+            return False
 
-        Args:
-            encoded_segment (list): List of hash keys representing the segment to capture.
-            verbose (bool): If True, prints capture details.
+        if self.unused_encodings:
+            hash_key = self.unused_encodings.pop()
+        else:
+            hash_key = self.generate_hash_key(self.gene_counter)
+            self.gene_counter += 1
 
-        Returns:
-            int: Hash key assigned to the captured Meta Gene.
-        """
-        # Always assign a new unique hash key for each capture
-        unique_identifier = self.gene_counter
-        hash_key = self.generate_hash_key(unique_identifier)
-        self.gene_counter += 1
-
-        # Map the hash_key to the encoded_segment
         self.encodings[hash_key] = tuple(encoded_segment)
-        self.meta_genes.append(hash_key)  # Append to the list
+        self.meta_genes.append(hash_key)
+        self.update_metagene_usage(hash_key)
 
         if verbose:
             print(f"Captured Meta Gene {encoded_segment} with hash key {hash_key}.")
@@ -201,62 +258,32 @@ class EncodingManager:
         return hash_key
 
     def open_metagene(self, hash_key, no_delimit=False, verbose=False):
-        """
-        Opens a captured Meta Gene, decompressing it back into its gene sequence.
-
-        Args:
-            hash_key (int): Hash key of the Meta Gene to open.
-            no_delimit (bool): If True, omits adding 'Start' and 'End' delimiters.
-            verbose (bool): If True, prints decompression details.
-
-        Returns:
-            list: List of hash keys representing the decompressed gene sequence.
-        """
         decompressed_codons = []
-
-        # Use .get() to safely access the dictionary and avoid KeyError
         encoded_item = self.encodings.get(hash_key)
 
-        # Check if the encoded_item exists and is a tuple (indicating a meta gene)
         if encoded_item and isinstance(encoded_item, tuple):
             if verbose:
                 print(f"Decompressing meta gene for hash key {hash_key}.")
 
             if not no_delimit:
-                # Add start delimiter if no_delimit is False
                 start_delimiter_hash_key = self.reverse_encodings['Start']
                 decompressed_codons.append(start_delimiter_hash_key)
 
-            # Iterate through the tuple and add each hash key to the decompressed_codons list
             for gene_hash_key in encoded_item:
-                decompressed_codons.append(gene_hash_key)  # gene_hash_key is already an integer hash key
+                decompressed_codons.append(gene_hash_key)
 
             if not no_delimit:
-                # Add end delimiter if no_delimit is False
                 end_delimiter_hash_key = self.reverse_encodings['End']
                 decompressed_codons.append(end_delimiter_hash_key)
         else:
             if verbose:
-                print(f"Hash key {hash_key} is not a meta gene or is unknown, returning as is.")
+                print(f"Hash key {hash_key} is not a meta gene or is unknown.")
             decompressed_codons.append(hash_key)
 
         return decompressed_codons
 
     def generate_random_organism(self, functional_length=100, include_specials=False, special_spacing=10,
                                  probability=0.99, verbose=False):
-        """
-        Generates a random organism with optional special delimiters.
-
-        Args:
-            functional_length (int): Number of functional genes.
-            include_specials (bool): If True, includes 'Start' and 'End' delimiters.
-            special_spacing (int): Minimum spacing between special delimiters.
-            probability (float): Probability of inserting a delimiter.
-            verbose (bool): If True, prints generation details.
-
-        Returns:
-            list: List of hash keys representing the encoded organism.
-        """
         gene_pool = [gene for gene in self.reverse_encodings if gene not in ['Start', 'End']]
         organism_genes = [random.choice(gene_pool) for _ in range(functional_length)]
         special_gene_indices = set()
@@ -272,7 +299,7 @@ class EncodingManager:
                         if verbose:
                             print(organism_genes)
 
-        encoded_organism = self.encode(organism_genes, verbose=verbose)  # Pass list directly
+        encoded_organism = self.encode(organism_genes, verbose=verbose)
 
         if verbose:
             print("Generated Encoded Organism:", encoded_organism)

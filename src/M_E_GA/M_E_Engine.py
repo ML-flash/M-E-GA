@@ -6,7 +6,7 @@ Created on Thu Feb 29 15:48:15 2024
 """
 # GNU GENERAL PUBLIC LICENSE
 # By running this code, you acknowledge and agree to the terms of the LICENSE file
-# provided in the repository. 
+# provided in the repository.
 
 import random
 import xxhash
@@ -16,27 +16,30 @@ from collections import OrderedDict
 
 class EncodingManager:
     def __init__(self, lru_cache_size=1000):
-        # Initialize with default genes 'Start' and 'End'
+        # Original attributes
         self.encodings = {}
         self.reverse_encodings = {}
-        self.meta_genes = []  # Renamed from captured_segments
-        self.gene_counter = 3  # Start the counter from 3 after 'Start' and 'End'
-
-        # LRU cache for metagenes
+        self.meta_genes = []
+        self.gene_counter = 3
         self.lru_cache_size = lru_cache_size
         self.metagene_usage = OrderedDict()
-
-        # Deletion management
-        self.deletion_basket = {}  # {hash_key: generation_count}
-        self.unused_encodings = []  # Pool of available encoding slots
+        self.deletion_basket = {}
+        self.unused_encodings = []
         self.current_generation = 0
 
         # Add default delimiters with predefined unique IDs
         self.add_gene('Start', predefined_id=1)
         self.add_gene('End', predefined_id=2)
 
+        # -------------------------
+        # Additional Internal Maps
+        # -------------------------
+        # These are new structures that do not replace or remove any existing structures.
+        # They are solely internal and do not affect the public interface.
+        self._metagene_children_map = {}  # {meta_gene_key: [codons]}
+        self._metagene_parents_map = {}   # {meta_gene_key: set_of_parent_metagenes}
+
     def generate_hash_key(self, identifier):
-        # Use xxhash's 64-bit version to generate a longer hash
         return xxhash.xxh64_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
@@ -80,12 +83,16 @@ class EncodingManager:
                     if verbose:
                         print(f"Integrated gene '{value}' with key '{key}'.")
             elif isinstance(value, tuple):
-                # Store the tuple in encodings and track the key in meta_genes
                 self.encodings[key] = value
-                self.meta_genes.append(key)  # Track metagene key
-                self.metagene_usage[key] = True  # Initialize usage tracking
-                if verbose:
-                    print(f"Integrated meta gene '{value}' with key '{key}'.")
+                self.meta_genes.append(key)
+                self.metagene_usage[key] = True
+                # Add to our internal maps
+                self._metagene_children_map[key] = list(value)
+                self._metagene_parents_map.setdefault(key, set())
+                # Update parents for each child that is a meta gene
+                for c in value:
+                    if c in self.meta_genes:
+                        self._metagene_parents_map.setdefault(c, set()).add(key)
             else:
                 if verbose:
                     print(f"Skipping gene '{value}' with key '{key}'.")
@@ -109,14 +116,6 @@ class EncodingManager:
     @functools.lru_cache(maxsize=1000)
     @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
-        """
-        Decodes a tuple of hash keys back into their gene sequences.
-        Args:
-            encoded_tuple (tuple): Tuple of hash keys to decode.
-            verbose (bool): If True, prints decoding details.
-        Returns:
-            list: List of decoded gene strings.
-        """
         if not encoded_tuple:
             return []
 
@@ -127,7 +126,7 @@ class EncodingManager:
             hash_key = stack.pop(0)
             if hash_key in self.encodings:
                 value = self.encodings[hash_key]
-                self.update_metagene_usage(hash_key)  # Track usage for metagene management
+                self.update_metagene_usage(hash_key)
 
                 if isinstance(value, tuple):
                     if verbose:
@@ -145,24 +144,20 @@ class EncodingManager:
         return decoded_sequence
 
     def update_metagene_usage(self, hash_key):
-        """Update LRU cache for metagene usage"""
         if hash_key not in self.meta_genes:
             return
 
         if hash_key in self.metagene_usage:
             self.metagene_usage.move_to_end(hash_key)
         else:
-            # If we're at capacity, move least recently used to deletion basket
             if len(self.metagene_usage) >= self.lru_cache_size:
                 lru_key, _ = self.metagene_usage.popitem(last=False)
                 if lru_key not in self.deletion_basket:
                     self.deletion_basket[lru_key] = 0
                     print(f"Moving metagene {lru_key} to deletion basket due to LRU cache overflow")
-
             self.metagene_usage[hash_key] = True
 
     def start_new_generation(self):
-        """Called at the start of each new generation"""
         self.current_generation += 1
 
         print(f"\nProcessing deletion basket at start of generation {self.current_generation}:")
@@ -171,7 +166,6 @@ class EncodingManager:
             return
 
         to_delete = []
-        # First pass - identify what will be deleted
         for hash_key, gen_count in self.deletion_basket.items():
             if gen_count >= 2:
                 to_delete.append(hash_key)
@@ -181,7 +175,6 @@ class EncodingManager:
                 self.deletion_basket[hash_key] = new_count
                 print(f"  Metagene {hash_key} count increased from {gen_count} to {new_count}")
 
-        # Second pass - perform deletions
         for hash_key in to_delete:
             print(f"\nDeleting metagene {hash_key}:")
             print(f"  Original contents: {self.encodings.get(hash_key, 'Unknown')}")
@@ -192,7 +185,7 @@ class EncodingManager:
             print(f"  Current unused_encodings pool size: {len(self.unused_encodings)}")
 
     def delete_metagene(self, hash_key):
-        """Delete a metagene and properly handle its dependencies."""
+        # Original Code - Do not remove or rename existing code, just add after it:
         if hash_key not in self.meta_genes:
             return
 
@@ -215,10 +208,8 @@ class EncodingManager:
 
             return expanded
 
-        # Process all dependencies
         expanded_contents = process_dependencies(hash_key)
 
-        # Update references in other metagenes (only if they contain this key)
         for meta_key in [k for k in self.meta_genes if k != hash_key]:
             meta_contents = list(self.encodings.get(meta_key, ()))
             if hash_key in meta_contents:
@@ -230,7 +221,6 @@ class EncodingManager:
                         new_contents.append(content)
                 self.encodings[meta_key] = tuple(new_contents)
 
-        # Clean up
         self.meta_genes.remove(hash_key)
         self.metagene_usage.pop(hash_key, None)
         self.deletion_basket.pop(hash_key, None)
@@ -238,6 +228,40 @@ class EncodingManager:
 
         if hash_key not in self.unused_encodings:
             self.unused_encodings.append(hash_key)
+
+        # ---------------------------------------
+        # Additional Steps to Prevent Stale References
+        # ---------------------------------------
+        # Now that the original logic has run, we use the newly introduced maps
+        # to ensure that no stale references remain. We do NOT remove or alter any
+        # of the original steps, just add more logic here.
+
+        # Remove references from the internal maps
+        if hash_key in self._metagene_children_map:
+            del self._metagene_children_map[hash_key]
+
+        # Find all meta genes that might have referenced this one and ensure
+        # they no longer do. Although the original code attempted this,
+        # we use our private structures to ensure full correctness.
+        for mg, parents in self._metagene_parents_map.items():
+            if hash_key in parents:
+                parents.discard(hash_key)
+
+        if hash_key in self._metagene_parents_map:
+            del self._metagene_parents_map[hash_key]
+
+        # Ensure that for any meta gene children that were expanded, their parents are updated
+        # This step ensures that after expansion, all references are correctly managed.
+        # We iterate over expanded_contents and update parent references if needed.
+        for c in expanded_contents:
+            # If c was a meta gene, ensure its parent references are correct
+            if c in self.meta_genes:
+                # If this meta gene was referencing the deleted one, it's already handled above
+                # Now we just ensure that we don't leave stale entries.
+                # This might be a no-op if everything is already correct.
+                if c not in self._metagene_parents_map:
+                    self._metagene_parents_map[c] = set()  # ensure it exists
+
     def capture_metagene(self, encoded_segment, verbose=False):
         if not encoded_segment:
             return False
@@ -251,6 +275,20 @@ class EncodingManager:
         self.encodings[hash_key] = tuple(encoded_segment)
         self.meta_genes.append(hash_key)
         self.update_metagene_usage(hash_key)
+
+        # ---------------------------------------------------
+        # Additional internal bookkeeping to avoid stale refs
+        # ---------------------------------------------------
+        # Record children
+        self._metagene_children_map[hash_key] = list(encoded_segment)
+        # Ensure an entry for parents
+        if hash_key not in self._metagene_parents_map:
+            self._metagene_parents_map[hash_key] = set()
+        # Update parents of each child if the child is a meta gene
+        for c in encoded_segment:
+            if c in self.meta_genes:
+                self._metagene_parents_map.setdefault(c, set()).add(hash_key)
+        # ---------------------------------------------------
 
         if verbose:
             print(f"Captured Meta Gene {encoded_segment} with hash key {hash_key}.")

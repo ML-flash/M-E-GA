@@ -255,7 +255,3 @@ class EncodingManager:
 
         max_hash_key = max(self.encodings.keys(), default=0)
         self.gene_counter = max(self.gene_counter, max_hash_key + 1)
-                self.metagene_usage[key] = True
-
-        max_hash_key = max(self.encodings.keys(), default=0)
-        self.gene_counter = max(self.gene_counter, max_hash_key + 1)

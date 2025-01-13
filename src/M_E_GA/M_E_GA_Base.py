@@ -15,13 +15,13 @@ import datetime
 import random
 import os
 import concurrent.futures
-#from .M_E_Engine import EncodingManager
+from M_E_Engine import EncodingManager
 
 
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function, mutation_prob=0.01, delimited_mutation_prob=0.01,
                  delimit_delete_prob=0.01, open_mutation_prob=0.0001,
-                 capture_mutation_prob=0.00001,
+                 metagene_mutation_prob=0.00001,
                  delimiter_insert_prob=0.00001, crossover_prob=0.50,
                  elitism_ratio=0.06, base_gene_prob=0.98,
                  max_individual_length=6, population_size=400,
@@ -31,9 +31,11 @@ class M_E_GA_Base:
                  crossover_logging=False, individual_logging=False,
                  experiment_name=None, encodings=None, seed=None,
                  before_fitness_evaluation=None, after_population_selection=None,
-                 before_generation_finalize=None, capture_gene_prob=0, **kwargs):
+                 before_generation_finalize=None, metagene_prob=0.0,
+                 fitness_evaluator=None, **kwargs):
         self.genes = genes
         self.fitness_function = fitness_function
+        self.fitness_evaluator = fitness_evaluator  # Store the fitness evaluator instance
         self.logging = logging
         self.logs = []
         self.encoding_manager = EncodingManager()
@@ -48,7 +50,7 @@ class M_E_GA_Base:
         self.delimited_mutation_prob = delimited_mutation_prob
         self.delimit_delete_prob = delimit_delete_prob
         self.open_mutation_prob = open_mutation_prob
-        self.capture_mutation_prob = capture_mutation_prob
+        self.metagene_mutation_prob = metagene_mutation_prob
         self.delimiter_insert_prob = delimiter_insert_prob
         self.crossover_prob = crossover_prob
         self.elitism_ratio = elitism_ratio
@@ -67,7 +69,8 @@ class M_E_GA_Base:
         self.individual_logging = individual_logging
         self.seed = seed
         self.relevant_data = None
-        self.capture_gene_prob = capture_gene_prob
+        self.metagene_prob = metagene_prob
+        self.fitness_scores = []  # Added to track fitness scores
 
         # Seed used for reproducibility.
         if seed is not None:
@@ -80,7 +83,8 @@ class M_E_GA_Base:
             for gene in self.genes:
                 self.encoding_manager.add_gene(gene, verbose=True)
 
-        if self.logging and self.experiment_name == None:
+        # Setup logging filename if logging is enabled
+        if self.logging and self.experiment_name is None:
             self.experiment_name = input("Enter the experiment name: ")
             self.log_filename = f"{self.experiment_name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
 
@@ -268,26 +272,44 @@ class M_E_GA_Base:
     import random
 
     def select_gene(self, verbose=False):
+        """
+        Decides whether to select a base gene or a meta (captured) gene.
+        If we select a meta gene, we weight it so that newer metagenes
+        (those added more recently) have a higher chance of being chosen.
+        """
+
         # Decide whether to select a base gene or a captured codon
-        if random.random() < self.base_gene_prob or not self.encoding_manager.captured_segments:
-            # Select a base gene if probability condition is met or if captured_segments is empty
-            base_gene = random.choice(self.genes)  # base_gene is now a string representing the gene ID
-            if base_gene not in ['Start', 'End']:  # Make sure not to select 'Start' or 'End' as base genes
+        if random.random() < self.base_gene_prob or not self.encoding_manager.meta_genes:
+            # Select a base gene if probability condition is met or if meta_genes is empty
+            base_gene = random.choice(self.genes)  # a string representing the gene
+            if base_gene not in ['Start', 'End']:
+                # Normal case: return its hash key
                 gene_key = self.encoding_manager.reverse_encodings[base_gene]
                 gene_type = "Base Gene"
             else:
-                # If 'Start' or 'End' is randomly selected, choose another gene
-                return self.select_gene(verbose)
+                # If 'Start' or 'End' is picked, skip it and recurse
+                return self.select_gene(verbose=verbose)
         else:
-            # Select a captured codon with a weighted probability that favors newer genes
-            captured_codon_keys = list(self.encoding_manager.captured_segments.keys())
-            total_captured = len(captured_codon_keys)
-            # Generate weights that decrease exponentially from newer to older genes
-            weights = [self.capture_gene_prob ** (total_captured - i - 1) for i in range(total_captured)]
-            normalized_weights = [weight / sum(weights) for weight in weights]  # Normalize the weights
-            captured_codon_key = random.choices(captured_codon_keys, weights=normalized_weights, k=1)[0]
-            gene_key = self.encoding_manager.captured_segments[captured_codon_key]
-            gene_type = "Captured Segment"
+            # Now select a meta gene with weighting that favors newer genes
+            # Using meta_gene_stack (newest at the *end*)
+            meta_gene_keys = self.encoding_manager.meta_gene_stack
+            total_meta = len(meta_gene_keys)
+
+            # Generate weights so that the newest (last index) has exponent 0 → weight=1,
+            # next newest exponent=1, etc., giving older ones smaller weights
+            weights = [self.metagene_prob ** (total_meta - i - 1) for i in range(total_meta)]
+            weight_sum = sum(weights)
+
+            # Normalize the weights to sum to 1
+            if weight_sum == 0:
+                # Fallback in case self.metagene_prob == 0 or any edge scenario
+                normalized_weights = [1.0 / total_meta] * total_meta
+            else:
+                normalized_weights = [w / weight_sum for w in weights]
+
+            meta_gene_key = random.choices(meta_gene_keys, weights=normalized_weights, k=1)[0]
+            gene_key = meta_gene_key
+            gene_type = "Meta Gene"
 
         if verbose:
             print(f"Selected {gene_type}: {gene_key}")
@@ -479,7 +501,7 @@ class M_E_GA_Base:
                     1.0,  # swap mutation
                     1.0,  # insertion
                     1.0,  # deletion
-                    self.capture_mutation_prob,  # capture mutation
+                    self.metagene_mutation_prob,  # capture mutation
                     self.open_mutation_prob  # open_no_delimit mutation
                 ]
             else:
@@ -752,7 +774,7 @@ class M_E_GA_Base:
                 segment_to_capture = organism[start_index + 1:end_index]
 
                 # Perform the capture operation
-                captured_codon = self.encoding_manager.capture_segment(segment_to_capture)
+                captured_codon = self.encoding_manager.capture_metagene(segment_to_capture)
                 if captured_codon is not False:
                     # Replace the delimited segment including the delimiters with the captured codon
                     organism = organism[:start_index] + [captured_codon] + organism[end_index + 1:]
@@ -770,7 +792,7 @@ class M_E_GA_Base:
 
     def perform_open(self, organism, index, no_delimit=False):
         mutation_log = None
-        decompressed = self.encoding_manager.open_segment(organism[index], no_delimit=no_delimit)
+        decompressed = self.encoding_manager.open_metagene(organism[index], no_delimit=no_delimit)
         if decompressed is not False:
             organism = organism[:index] + decompressed + organism[index + 1:]
             index += len(decompressed) - 1  # Adjust the index for the next operation
@@ -821,6 +843,7 @@ class M_E_GA_Base:
         for generation in range(self.max_generations):
             self.current_generation = generation
             self.start_new_generation_logging(self.current_generation)
+            self.encoding_manager.start_new_generation()
 
             # Callback before fitness evaluation
             if self.before_fitness_evaluation:
@@ -859,12 +882,12 @@ class M_E_GA_Base:
                     "DELIMITED_MUTATION_PROB": self.delimited_mutation_prob,
                     "DELIMIT_DELETE_PROB": self.delimit_delete_prob,
                     "OPEN_MUTATION_PROB": self.open_mutation_prob,
-                    "CAPTURE_MUTATION_PROB": self.capture_mutation_prob,
+                    "CAPTURE_MUTATION_PROB": self.metagene_mutation_prob,
                     "DELIMITER_INSERT_PROB": self.delimiter_insert_prob,
                     "CROSSOVER_PROB": self.crossover_prob,
                     "ELITISM_RATIO": self.elitism_ratio,
                     "BASE_GENE_PROB": self.base_gene_prob,
-                    "CAPTURED_GENE_PROB": self.capture_gene_prob,
+                    "CAPTURED_GENE_PROB": self.metagene_prob,
                     "MAX_INDIVIDUAL_LENGTH": self.max_individual_length,
                     "POPULATION_SIZE": self.population_size,
                     "NUM_PARENTS": self.num_parents,
@@ -889,13 +912,3 @@ class M_E_GA_Base:
             with open(log_filename, 'w') as log_file:
                 json.dump(final_log, log_file, indent=4)
 
-    # No changes below this line
-
-
-'''Changes fixed bug in logging causing generations to be logged twice one empty and the other with the data. Was causing issues
-and overall just getting in the way. 
-
-Refactored mutations the previous structure was preventing the probabilities from being effective. Special mutations
-were applied first causing normal mutations to be under represented. not everything is weighted so there is only one probability 
-roll to apply mutations per gene where the weight of a given mutation is set according to its probability. Added 
-delimit_delete_prob'''

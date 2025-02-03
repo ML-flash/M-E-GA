@@ -3,12 +3,13 @@ import xxhash
 import functools
 from collections import OrderedDict
 
-
 class EncodingManager:
-    def __init__(self, lru_cache_size=1000):
+    def __init__(self, lru_cache_size=100, logger=None):
+        self.logger = logger  # New: accept a logger for research/real-time metrics
         self.encodings = {}
         self.reverse_encodings = {}
-        self.meta_genes = []
+        self.meta_genes = []         # Existing references rely on this list
+        self.meta_gene_stack = []    # NEW: track newest->oldest metagenes
         self.gene_counter = 3
         self.lru_cache_size = lru_cache_size
         self.metagene_usage = OrderedDict()
@@ -100,6 +101,27 @@ class EncodingManager:
         for hash_key in to_delete:
             self.delete_metagene(hash_key)
 
+    # NEW helper methods to keep meta_genes and meta_gene_stack in sync
+    def add_meta_gene(self, hash_key):
+        """
+        Adds the metagene to both self.meta_genes and self.meta_gene_stack.
+        The newest metagene will appear at the end of meta_gene_stack.
+        """
+        if hash_key not in self.meta_genes:
+            self.meta_genes.append(hash_key)
+        if hash_key not in self.meta_gene_stack:
+            self.meta_gene_stack.append(hash_key)  # newest at the end
+
+    def remove_meta_gene(self, hash_key):
+        """
+        Removes the metagene from both self.meta_genes and self.meta_gene_stack
+        so that ordering for meta_gene_stack remains correct.
+        """
+        if hash_key in self.meta_genes:
+            self.meta_genes.remove(hash_key)
+        if hash_key in self.meta_gene_stack:
+            self.meta_gene_stack.remove(hash_key)
+
     def delete_metagene(self, hash_key):
         if hash_key not in self.meta_genes:
             return
@@ -125,8 +147,10 @@ class EncodingManager:
                 if modified:
                     self.encodings[meta_key] = tuple(meta_contents)
 
-        # Remove all references
-        self.meta_genes.remove(hash_key)
+        # Remove references
+        # Instead of self.meta_genes.remove(hash_key), call remove_meta_gene
+        self.remove_meta_gene(hash_key)
+
         self.metagene_usage.pop(hash_key, None)
         self.deletion_basket.pop(hash_key, None)
         self.encodings.pop(hash_key, None)
@@ -134,6 +158,13 @@ class EncodingManager:
         # Add to unused pool
         if hash_key not in self.unused_encodings:
             self.unused_encodings.append(hash_key)
+
+        if self.logger:
+            self.logger.log_event("metagene_deleted", {
+                "hash_key": hash_key,
+                "generation": self.current_generation,
+                "unused_pool_size": len(self.unused_encodings)
+            })
 
         if self.debug:
             print(f"Deleted metagene {hash_key}")
@@ -153,17 +184,33 @@ class EncodingManager:
         # Get available ID
         if self.unused_encodings:
             hash_key = self.unused_encodings.pop(0)
+            if self.logger:
+                self.logger.log_event("metagene_reused", {
+                    "hash_key": hash_key,
+                    "generation": self.current_generation,
+                    "unused_pool_size": len(self.unused_encodings)
+                })
         else:
             hash_key = self.generate_hash_key(self.gene_counter)
             self.gene_counter += 1
 
         # Store new metagene
         self.encodings[hash_key] = segment_tuple
-        self.meta_genes.append(hash_key)
+
+        # Instead of self.meta_genes.append(hash_key), call add_meta_gene
+        self.add_meta_gene(hash_key)
+
         self.update_metagene_usage(hash_key)
 
         if verbose:
             print(f"Captured new metagene with ID {hash_key}")
+
+        if self.logger:
+            self.logger.log_event("metagene_captured", {
+                "hash_key": hash_key,
+                "segment": segment_tuple,
+                "generation": self.current_generation
+            })
 
         return hash_key
 
@@ -250,7 +297,8 @@ class EncodingManager:
                     self.reverse_encodings[value] = key
             elif isinstance(value, tuple):
                 self.encodings[key] = value
-                self.meta_genes.append(key)
+                # Because this is a metagene, add it to both meta_genes and meta_gene_stack
+                self.add_meta_gene(key)
                 self.metagene_usage[key] = True
 
         max_hash_key = max(self.encodings.keys(), default=0)

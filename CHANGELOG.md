@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file. The format 
 - The `open_segment` method was modified to change how the `no_delimit` flag functions.
 - **Previous Behavior**: `no_delimit` would open meta-genes without delimiters.
 - **New Behavior**: It places `End` at the start of the opened segment and `Start` at the end, ensuring the newly opened segment remains outside of delimiters.
-- **Impact**: 
+- **Impact**:
   - Opened nested meta-genes are now more exposed to modification.
   - This change creates new undelimited space and counteracts the compressive pressure of the capture mutation.
   - Prevents stagnation in the evolutionary process by enabling greater flexibility.
@@ -23,6 +23,10 @@ All notable changes to this project will be documented in this file. The format 
 - Ensures proper meta-gene ordering.
 - Since the deletion process allows for recycling of meta-genes, the `encodings` and `reverse_encodings` lists may become inaccurate.
 - This update affects the `select_gene` mechanism in `M_E_GA_Base`, which selects meta-genes based on their age (favoring older or newer ones), making order critical.
+
+### Integrated GA Logger for Real-Time Event Logging
+- The GA Logger has been added to the project to provide enhanced real-time logging of significant events such as generation summaries, mutations, crossovers, and meta-gene events.
+- It supports event subscriptions for live monitoring and persists logs to JSON files for further analysis.
 
 ---
 
@@ -40,6 +44,7 @@ All notable changes to this project will be documented in this file. The format 
 ---
 
 ## Notes
+
 ### ⚠️ Breaking Changes
 - This version introduces changes that may break dependent code, especially in:
   - Parameter naming (`capture_gene_prob` → `metagene_prob`).

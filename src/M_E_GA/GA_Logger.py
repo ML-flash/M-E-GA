@@ -4,12 +4,12 @@ import os
 
 
 class GA_Logger:
-    def __init__(self, experiment_name, log_directory="logs_and_log_tools"):
+    def __init__(self, experiment_name, log_directory="MEGA Logs"):
         """
         Initialize the logger with an experiment name and a directory where logs will be saved.
         """
         self.experiment_name = experiment_name
-        self.log_directory = log_directory
+        self.log_directory = os.path.join(os.path.expanduser("~"), log_directory)
         self.events = []  # List to store all logged events.
         self.subscribers = []  # List of subscriber callback functions for real-time event notifications.
 

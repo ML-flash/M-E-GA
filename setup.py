@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name='M-E-GA2',
-    version='1.0.0-b3',
+    version='2.0.0-b0',
     author='Matt Andrews',
     author_email='Matthew.Andrews2024@gmail.com',
     description='Package includes the M_E_Engine and the M_E_GA_Base together these classes facilitate the development'
-                ' of Mutable Encoding enables Genetic Algorithms.',
+                ' of Mutable Encoding enabled Genetic Algorithms.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/ML-flash/M-E-GA',

@@ -14,12 +14,8 @@ import datetime
 import random
 import os
 import concurrent.futures
-try:
-    from M_E_GA.M_E_Engine import EncodingManager  # For installed package
-except ImportError:
-    from M_E_Engine import EncodingManager  # For local execution
-
-from GA_Logger import GA_Logger  # Import your logger class
+from .M_E_Engine import EncodingManager
+from .GA_Logger import GA_Logger 
 
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function,

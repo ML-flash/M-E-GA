@@ -15,7 +15,7 @@ import random
 import os
 import concurrent.futures
 from .M_E_Engine import EncodingManager
-from .GA_Logger import GA_Logger 
+from .GA_Logger import GA_Logger
 
 class M_E_GA_Base:
     def __init__(self, genes, fitness_function,

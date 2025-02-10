@@ -1,36 +1,35 @@
-# M_E_GA_fitness_funcs.py
-
 class LeadingOnesFitness:
     def __init__(self, max_length, update_best_func):
-        self.max_length = max_length
-        self.update_best = update_best_func  # Store the passed function for updating the best organism
-        self.genes = ['0', '1']  # Specific genes for this fitness function
+        self.max_length = max_length  # Maximum length of an individual for scoring normalization
+        self.update_best = update_best_func  # Function to update the best organism
+        self.genes = ['0', '1']  # Define the specific genes used in this fitness function
 
     def compute(self, encoded_individual, ga_instance):
-        # Decode the individual
-        decoded_individual = ga_instance.decode_organism(encoded_individual)
+        """
+        Computes the fitness of an individual based on the number of leading ones without penalties.
 
-        # Initialize fitness score
+        Args:
+            encoded_individual (str or list of str): The encoded individual to evaluate. If a string, it's treated as a single individual; if a list, it's assumed to be multiple individuals.
+            ga_instance (object): An instance of the genetic algorithm framework. This is used for decoding and other operations depending on the context.
+
+        Returns:
+            float or list of floats: The computed fitness scores for each encoded individual. If a single individual is passed, returns a float; if multiple individuals are passed, returns a list of floats.
+        """
+        decoded_individual = ga_instance.decode_organism(encoded_individual)  # Decode the individual
         fitness_score = 0
 
-        # Count the number of leading '1's until the first '0'
+        # Count the number of leading '1's until the first '0' or the end of the sequence
         for gene in decoded_individual:
             if gene == '1':
                 fitness_score += 1
             else:
                 break  # Stop counting at the first '0'
 
-        # Calculate the penalty
-        if len(decoded_individual) < self.max_length:
-            penalty = 1.008 ** (self.max_length - len(decoded_individual))
-        else:
-            penalty = len(decoded_individual) - self.max_length
-
-        # Compute final fitness score
-        final_fitness = fitness_score - penalty
+        # Normalize the fitness score to be between 0 and self.max_length
+        normalized_fitness = min(fitness_score, self.max_length)
 
         # Update the best organism using the passed function
-        self.update_best(encoded_individual, final_fitness, verbose=True)
+        self.update_best(encoded_individual, normalized_fitness, verbose=True)
 
-        # Return the final fitness score after applying the penalty
-        return final_fitness
+        # Return the final fitness score
+        return normalized_fitness

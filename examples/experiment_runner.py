@@ -7,7 +7,7 @@ from threading import Thread
 # GA and Fitness Function Imports
 # -------------------------------
 # Adjust these imports based on your project structure.
-from M_E_GA_Base import M_E_GA_Base
+from M_E_GA import M_E_GA_Base
 from M_E_GA_fitness_funcs import LeadingOnesFitness
 
 # -------------------------------

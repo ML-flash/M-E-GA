@@ -4,7 +4,34 @@ import functools
 from collections import OrderedDict
 
 class EncodingManager:
+    """
+    Manages gene encodings and metagene usage, including encoding/decoding,
+    caching, and automatic deletion of unused metagenes.
+
+    Attributes:
+        logger (object): Optional logger for research/real-time metrics.
+        encodings (dict): Mapping from hash keys to gene or metagene contents.
+        reverse_encodings (dict): Mapping from gene strings to their hash keys.
+        meta_genes (list): List of metagene hash keys.
+        meta_gene_stack (list): Stack tracking metagenes from oldest to newest.
+        gene_counter (int): Counter used for generating new gene IDs.
+        lru_cache_size (int): Maximum size of the LRU cache for metagene usage.
+        metagene_usage (OrderedDict): LRU cache storing recently used metagenes.
+        deletion_basket (dict): Mapping of metagene hash keys to generations unused.
+        unused_encodings (list): Pool of unused encoding hash keys for reuse.
+        current_generation (int): Tracks the current generation number.
+        debug (bool): Flag to enable debugging output.
+    """
+
     def __init__(self, lru_cache_size=100, logger=None):
+        """
+        Initializes the EncodingManager with an optional LRU cache size and logger.
+
+        Args:
+            lru_cache_size (int, optional): Maximum size of the LRU cache.
+                Defaults to 100.
+            logger (object, optional): Logger instance for metrics/events.
+        """
         self.logger = logger  # New: accept a logger for research/real-time metrics
         self.encodings = {}
         self.reverse_encodings = {}
@@ -23,6 +50,14 @@ class EncodingManager:
         self.add_gene('End', predefined_id=2)
 
     def get_metagene_status(self):
+        """
+        Retrieves a status report of the current metagene usage and state.
+
+        Returns:
+            dict: A dictionary containing the current generation, total metagenes,
+                count of metagenes in the deletion basket, unused encodings,
+                number in the LRU cache, and sample details (if debug is enabled).
+        """
         samples = []
         if self.debug and self.meta_genes:
             sample_size = min(3, len(self.meta_genes))
@@ -46,9 +81,31 @@ class EncodingManager:
         }
 
     def generate_hash_key(self, identifier):
+        """
+        Generates a hash key for a given identifier using xxhash.
+
+        Args:
+            identifier (any): The identifier to hash.
+
+        Returns:
+            int: The generated hash key as a 64-bit integer.
+        """
         return xxhash.xxh64_intdigest(str(identifier))
 
     def add_gene(self, gene, verbose=False, predefined_id=None):
+        """
+        Adds a new gene to the encodings unless it already exists.
+
+        Args:
+            gene (str): The gene string to add.
+            verbose (bool, optional): If True, prints additional information.
+                Defaults to False.
+            predefined_id (int, optional): A predefined identifier for the gene.
+                Defaults to None.
+
+        Returns:
+            int: The hash key for the added or existing gene.
+        """
         if gene in self.reverse_encodings:
             return self.reverse_encodings[gene]
 
@@ -65,6 +122,13 @@ class EncodingManager:
         return hash_key
 
     def update_metagene_usage(self, hash_key):
+        """
+        Updates the usage record of a metagene. Moves it to the end of the LRU cache,
+        and if the cache is full, moves the least recently used metagene to the deletion basket.
+
+        Args:
+            hash_key (int): The hash key of the metagene to update.
+        """
         if hash_key not in self.meta_genes:
             return
 
@@ -83,6 +147,10 @@ class EncodingManager:
             self.metagene_usage[hash_key] = True
 
     def start_new_generation(self):
+        """
+        Advances the generation counter and processes the deletion basket.
+        Metagenes that have been unused for 2 or more generations are marked and deleted.
+        """
         self.current_generation += 1
 
         # First pass: Identify metagenes to delete
@@ -101,11 +169,14 @@ class EncodingManager:
         for hash_key in to_delete:
             self.delete_metagene(hash_key)
 
-    # NEW helper methods to keep meta_genes and meta_gene_stack in sync
     def add_meta_gene(self, hash_key):
         """
-        Adds the metagene to both self.meta_genes and self.meta_gene_stack.
-        The newest metagene will appear at the end of meta_gene_stack.
+        Adds a metagene hash key to both the meta_genes list and the meta_gene_stack.
+
+        The newest metagene appears at the end of meta_gene_stack.
+
+        Args:
+            hash_key (int): The hash key of the metagene to add.
         """
         if hash_key not in self.meta_genes:
             self.meta_genes.append(hash_key)
@@ -114,8 +185,10 @@ class EncodingManager:
 
     def remove_meta_gene(self, hash_key):
         """
-        Removes the metagene from both self.meta_genes and self.meta_gene_stack
-        so that ordering for meta_gene_stack remains correct.
+        Removes a metagene hash key from both the meta_genes list and the meta_gene_stack.
+
+        Args:
+            hash_key (int): The hash key of the metagene to remove.
         """
         if hash_key in self.meta_genes:
             self.meta_genes.remove(hash_key)
@@ -123,6 +196,14 @@ class EncodingManager:
             self.meta_gene_stack.remove(hash_key)
 
     def delete_metagene(self, hash_key):
+        """
+        Deletes a metagene from the encoding system. It replaces references to the
+        metagene in other metagenes with its underlying content, removes its usage
+        records, and adds its hash key to the unused pool.
+
+        Args:
+            hash_key (int): The hash key of the metagene to delete.
+        """
         if hash_key not in self.meta_genes:
             return
 
@@ -148,7 +229,6 @@ class EncodingManager:
                     self.encodings[meta_key] = tuple(meta_contents)
 
         # Remove references
-        # Instead of self.meta_genes.remove(hash_key), call remove_meta_gene
         self.remove_meta_gene(hash_key)
 
         self.metagene_usage.pop(hash_key, None)
@@ -170,6 +250,19 @@ class EncodingManager:
             print(f"Deleted metagene {hash_key}")
 
     def capture_metagene(self, encoded_segment, verbose=False):
+        """
+        Captures a segment as a new metagene if it does not already exist.
+        If an identical metagene exists, updates its usage and returns its hash key.
+
+        Args:
+            encoded_segment (list): The segment to capture as a metagene.
+            verbose (bool, optional): If True, prints additional information.
+                Defaults to False.
+
+        Returns:
+            int or bool: The hash key of the captured (or existing) metagene,
+                or False if the segment is empty.
+        """
         if not encoded_segment:
             return False
 
@@ -197,7 +290,7 @@ class EncodingManager:
         # Store new metagene
         self.encodings[hash_key] = segment_tuple
 
-        # Instead of self.meta_genes.append(hash_key), call add_meta_gene
+        # Add to metagene lists
         self.add_meta_gene(hash_key)
 
         self.update_metagene_usage(hash_key)
@@ -215,6 +308,20 @@ class EncodingManager:
         return hash_key
 
     def open_metagene(self, hash_key, no_delimit=False, verbose=False):
+        """
+        Decompresses or 'opens' a metagene by replacing its hash key with its underlying
+        contents. Optionally adds special start and end delimiters.
+
+        Args:
+            hash_key (int): The hash key of the metagene to open.
+            no_delimit (bool, optional): If True, omits the 'Start' and 'End' delimiters.
+                Defaults to False.
+            verbose (bool, optional): If True, prints additional information.
+                Defaults to False.
+
+        Returns:
+            list: A list of genes representing the decompressed metagene.
+        """
         if hash_key not in self.encodings or not isinstance(self.encodings[hash_key], tuple):
             return [hash_key]
 
@@ -230,6 +337,17 @@ class EncodingManager:
         return decompressed
 
     def encode(self, genes, verbose=False):
+        """
+        Encodes a list of gene strings into their corresponding hash keys.
+
+        Args:
+            genes (list): A list of gene strings to encode.
+            verbose (bool, optional): If True, prints a message for unrecognized genes.
+                Defaults to False.
+
+        Returns:
+            list: A list of hash keys corresponding to the provided genes.
+        """
         encoded_list = []
         for gene in genes:
             hash_key = self.reverse_encodings.get(gene)
@@ -242,6 +360,18 @@ class EncodingManager:
 
     @functools.lru_cache(maxsize=1000)
     def decode(self, encoded_tuple, verbose=False):
+        """
+        Decodes an encoded tuple of hash keys back into the original gene sequence.
+        Utilizes an LRU cache for efficiency.
+
+        Args:
+            encoded_tuple (tuple or int): A tuple (or a single int) representing encoded genes.
+            verbose (bool, optional): If True, prints additional debugging information.
+                Defaults to False.
+
+        Returns:
+            list: The decoded gene sequence as a list of gene strings.
+        """
         if not encoded_tuple:
             return []
 
@@ -268,6 +398,25 @@ class EncodingManager:
 
     def generate_random_organism(self, functional_length=100, include_specials=False,
                                  special_spacing=10, probability=0.99, verbose=False):
+        """
+        Generates a random organism by selecting random genes and optionally inserting
+        special delimiters ('Start' and 'End') at specified intervals.
+
+        Args:
+            functional_length (int, optional): The number of functional genes to include.
+                Defaults to 100.
+            include_specials (bool, optional): If True, inserts special delimiters.
+                Defaults to False.
+            special_spacing (int, optional): The minimum spacing between special delimiters.
+                Defaults to 10.
+            probability (float, optional): Probability threshold for inserting a special gene.
+                Defaults to 0.99.
+            verbose (bool, optional): If True, prints additional debugging information.
+                Defaults to False.
+
+        Returns:
+            list: The encoded organism as a list of hash keys.
+        """
         gene_pool = [gene for gene in self.reverse_encodings if gene not in ['Start', 'End']]
         organism_genes = [random.choice(gene_pool) for _ in range(functional_length)]
         special_gene_indices = set()
@@ -284,6 +433,17 @@ class EncodingManager:
         return self.encode(organism_genes, verbose=verbose)
 
     def integrate_uploaded_encodings(self, uploaded_encodings, base_genes, verbose=False):
+        """
+        Integrates externally provided encodings into the current encoding system.
+        It validates base genes and adds metagenes accordingly.
+
+        Args:
+            uploaded_encodings (str or dict): The encodings to integrate. If a string,
+                it should be formatted as "key:value,key:value,...".
+            base_genes (list): List of base gene strings that are allowed.
+            verbose (bool, optional): If True, prints additional debugging information.
+                Defaults to False.
+        """
         if isinstance(uploaded_encodings, str):
             uploaded_encodings = {int(k): v for k, v in (item.split(':') for item in uploaded_encodings.split(','))}
 

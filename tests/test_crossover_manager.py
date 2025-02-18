@@ -4,11 +4,10 @@ test_crossover_manager.py
 Unit tests specifically for the CrossoverManager.
 """
 
-import unittest
 import random
+import unittest
 
-from M_E_GA.M_E_GA_Base import M_E_GA_Base
-from M_E_GA.engine.crossover_manager import CrossoverManager
+from src.M_E_GA import M_E_GA_Base
 
 
 class TestCrossoverManager(unittest.TestCase):

@@ -1,8 +1,7 @@
 import random
 import unittest
 
-from M_E_GA import EncodingManager  # Updated import
-from M_E_GA import M_E_GA_Base  # Updated import
+from src.M_E_GA import EncodingManager, M_E_GA_Base
 
 
 class DummyFitnessEvaluator:

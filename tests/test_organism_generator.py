@@ -8,7 +8,7 @@ correctly uses functional_length, spacing, and optional delimiters.
 import random
 import unittest
 
-from M_E_GA.M_E_GA_Base import M_E_GA_Base
+from src.M_E_GA import M_E_GA_Base
 
 
 class TestOrganismGenerator(unittest.TestCase):

@@ -5,11 +5,10 @@ Unit tests for the PopulationManager: initialization, fitness evaluation,
 and next-generation creation (elitism, crossover, mutation integration).
 """
 
-import unittest
 import random
+import unittest
 
-from M_E_GA.M_E_GA_Base import M_E_GA_Base
-from M_E_GA.engine.population_manager import PopulationManager
+from src.M_E_GA import M_E_GA_Base
 
 
 class TestPopulationManager(unittest.TestCase):
@@ -72,6 +71,7 @@ class TestPopulationManager(unittest.TestCase):
         """
         Test we get the correct size new population, with elitism and random combos.
         """
+
         def custom_fitness(org, ga):
             # Let's pretend: we want more '1's = higher fitness
             return sum(org)

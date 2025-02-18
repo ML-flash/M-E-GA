@@ -6,13 +6,11 @@ We avoid randomness in critical tests by directly calling subfunctions
 (e.g., capture, open) so the results are deterministic.
 """
 
-import unittest
 import random
+import unittest
 
-from M_E_GA.M_E_GA_Base import M_E_GA_Base
-from M_E_GA.engine.mutation_manager import MutationManager
-# We import capture/open methods directly to force them in test_capture_and_open_metagene
-from M_E_GA.engine.mutation.metagene_mutations import perform_capture, perform_open
+from src.M_E_GA import M_E_GA_Base
+from src.M_E_GA.engine.mutation.metagene_mutations import perform_open, perform_capture
 
 
 class TestMutationManager(unittest.TestCase):

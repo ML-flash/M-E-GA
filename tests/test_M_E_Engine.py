@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from M_E_GA import EncodingManager  # Updated import
+from src.M_E_GA import EncodingManager
 
 
 class TestEncodingManager(unittest.TestCase):

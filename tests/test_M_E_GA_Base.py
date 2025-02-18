@@ -1,17 +1,20 @@
-import unittest
 import random
-import os
-from M_E_GA.M_E_GA_Base import M_E_GA_Base
-from M_E_GA.M_E_Engine import EncodingManager
+import unittest
+
+from M_E_GA import EncodingManager  # Updated import
+from M_E_GA import M_E_GA_Base  # Updated import
+
 
 class DummyFitnessEvaluator:
     """
     A stub fitness evaluator class that returns random scores
     or zero. This can be expanded to replicate a specific scenario.
     """
+
     def evaluate(self, population, ga_instance):
         # Return a list of random fitness scores, one per individual
         return [random.uniform(0, 1) for _ in population]
+
 
 def dummy_fitness_function(organism, ga_instance):
     """
@@ -19,6 +22,7 @@ def dummy_fitness_function(organism, ga_instance):
     (Or you can interpret 'organism' in some way.)
     """
     return random.uniform(0, 1)
+
 
 class TestM_E_GA_Base(unittest.TestCase):
     def setUp(self):
@@ -80,7 +84,7 @@ class TestM_E_GA_Base(unittest.TestCase):
 
     def test_run_algorithm_small(self):
         """
-        Do a short run of the GA with a dummy fitness function. 
+        Do a short run of the GA with a dummy fitness function.
         Confirm no errors occur, and that we end up with a final population/logs.
         """
         # Run the GA (this calls initialize_population and goes through max_generations)
@@ -93,7 +97,7 @@ class TestM_E_GA_Base(unittest.TestCase):
                          "Final population size should remain consistent with population_size.")
         self.assertEqual(len(self.ga.fitness_scores), self.ga.population_size,
                          "We should have a fitness score for each individual in the final population.")
-        
+
         # If logging was enabled, check that logs are present
         if self.ga.logging:
             self.assertTrue(len(self.ga.logs) > 0,
@@ -105,7 +109,6 @@ class TestM_E_GA_Base(unittest.TestCase):
         This depends on how your M_E_Engine handles them.
         """
         # Make a small organism with potential Start/End included
-        # We'll add 'A', 'B' in the middle
         start_codon = self.ga.encoding_manager.reverse_encodings['Start']
         end_codon = self.ga.encoding_manager.reverse_encodings['End']
         organism = [start_codon,

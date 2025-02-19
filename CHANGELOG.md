@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+# [2.0.0-b1] - 2025-2-18
+
+## Changed
+
+- Refactored `M_E_Engine.py` and `M_E_GA_Base.py` and split them into submodules (`M_E_GA/engine`).
+- Added unit tests.
+- Fixed the `repair` method in `mutation_manager.py`, using a stack-based approach to match delimiters.
+
+
 # [2.0.0-b0] - 2025-2-2
 
 ## Added

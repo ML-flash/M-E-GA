@@ -2,8 +2,69 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
--  Next release will include deleting Meta Genes from the M_E_Engine in a LRU ( Least Recently Used) order. Still a work in progress.
+# [2.0.0-b1] - 2025-2-18
+
+## Changed
+
+- Refactored `M_E_Engine.py` and `M_E_GA_Base.py` and split them into submodules (`M_E_GA/engine`).
+- Added unit tests.
+- Fixed the `repair` method in `mutation_manager.py`, using a stack-based approach to match delimiters.
+
+
+# [2.0.0-b0] - 2025-2-2
+
+## Added
+
+### Meta-gene deletion in `M_E_Engine`
+- Meta-genes are now automatically deleted after remaining unused for a specified number of generations.
+- This process is managed through the `deletion_basket` and Least Recently Used (LRU) cache logic.
+
+### Updated `no_delimit` flag in `open_segment` (Breaking Change)
+- The `open_segment` method was modified to change how the `no_delimit` flag functions.
+- **Previous Behavior**: `no_delimit` would open meta-genes without delimiters.
+- **New Behavior**: It places `End` at the start of the opened segment and `Start` at the end, ensuring the newly opened segment remains outside of delimiters.
+- **Impact**:
+  - Opened nested meta-genes are now more exposed to modification.
+  - This change creates new undelimited space and counteracts the compressive pressure of the capture mutation.
+  - Prevents stagnation in the evolutionary process by enabling greater flexibility.
+
+### Introduced `metagene_stack` in the `EncodingManager`
+- Ensures proper meta-gene ordering.
+- Since the deletion process allows for recycling of meta-genes, the `encodings` and `reverse_encodings` lists may become inaccurate.
+- This update affects the `select_gene` mechanism in `M_E_GA_Base`, which selects meta-genes based on their age (favoring older or newer ones), making order critical.
+
+### Integrated GA Logger for Real-Time Event Logging
+- The GA Logger has been added to the project to provide enhanced real-time logging of significant events such as generation summaries, mutations, crossovers, and meta-gene events.
+- It supports event subscriptions for live monitoring and persists logs to JSON files for further analysis.
+
+---
+
+## Changed
+
+### Refactored Parameter Usage (Breaking Change)
+- `metagene_prob` was previously referred to as `capture_gene_prob`.
+- This refactor ensures clearer terminology in alignment with the meta-gene framework.
+- **Potential Fix**: Update existing configurations and code to replace `capture_gene_prob` with `metagene_prob`.
+
+### Population Initialization (Breaking Change)
+- `initialize_population` was updated to allow better control over special gene inclusion and spacing.
+- **Potential Fix**: Ensure any custom calls to `initialize_population` are updated to handle the new arguments or defaults.
+
+---
+
+## Notes
+
+### ⚠️ Breaking Changes
+- This version introduces changes that may break dependent code, especially in:
+  - Parameter naming (`capture_gene_prob` → `metagene_prob`).
+  - `EncodingManager` initialization.
+  - Meta-gene handling.
+
+### Focus of this Update:
+- Enhanced mutation handling.
+- Improved evolutionary adaptability in MEGA.
+
+**⚠️ Ensure dependent code and configurations are updated accordingly to avoid issues.**
 
 ## [1.0.0b3] - 2024-10-15
 ### Changed

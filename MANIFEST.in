@@ -1,2 +1,2 @@
-recursive-include examples *
+exclude examples/*
 recursive-include tests *

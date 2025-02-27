@@ -1,79 +1,8 @@
-import unittest
-from M_E_GA.M_E_Engine import EncodingManager
-
-
-class TestEncodingManager(unittest.TestCase):
-    def setUp(self):
-        """Initialize an EncodingManager before each test."""
-        self.manager = EncodingManager()
-
-    def test_initialization(self):
-        """Test that the EncodingManager initializes correctly with default delimiters."""
-        self.assertIn('Start', self.manager.reverse_encodings)
-        self.assertIn('End', self.manager.reverse_encodings)
-        self.assertEqual(self.manager.gene_counter, 3, "Gene counter should start at 3.")
-
-    def test_add_and_encode_genes(self):
-        """Test adding genes and encoding them."""
-        genes = ['A', 'B', 'C']
-        encoded_keys = []
-        for gene in genes:
-            hash_key = self.manager.add_gene(gene)
-            encoded_keys.append(hash_key)
-
-        for gene, hash_key in zip(genes, encoded_keys):
-            self.assertEqual(self.manager.reverse_encodings[gene], hash_key,
-                             f"Gene '{gene}' should map to hash key {hash_key}.")
-
-        encoded = self.manager.encode(genes)
-        self.assertEqual(encoded, encoded_keys, "Encoded sequence should match expected hash keys.")
-
-    def test_capture_and_open_metagene(self):
-        """Test capturing a segment and opening the captured metagene."""
-        self.manager.add_gene('A')
-        self.manager.add_gene('B')
-        segment = self.manager.encode(['A', 'B'])
-        captured_codon = self.manager.capture_metagene(segment)
-        self.assertIn(captured_codon, self.manager.meta_genes,
-                      "Captured codon should be in meta_genes.")
-
-        opened_segment = self.manager.open_metagene(captured_codon)
-        decoded_segment = self.manager.decode(tuple(opened_segment))
-        self.assertEqual(decoded_segment, ['Start', 'A', 'B', 'End'],
-                         "Opened metagene should match the original segment with delimiters.")
-
-    def test_decode_unknown_hash_key(self):
-        """Test decoding an unknown hash key."""
-        unknown_hash_key = 99999  # A hash key that doesn't exist in encodings
-        decoded = self.manager.decode((unknown_hash_key,))
-        self.assertIn('Unknown', decoded, "Unknown hash key should decode to 'Unknown'.")
-
-    def test_duplicate_segment_capture(self):
-        """Test that duplicate segments use the same hash key."""
-        self.manager.add_gene('X')
-        self.manager.add_gene('Y')
-        segment = self.manager.encode(['X', 'Y'])
-        captured_codon_1 = self.manager.capture_metagene(segment)
-        captured_codon_2 = self.manager.capture_metagene(segment)
-        self.assertEqual(captured_codon_1, captured_codon_2, "Duplicate segments should reuse the same hash key.")
-
-    def test_lru_cache_eviction(self):
-        """Test that the LRU cache evicts the least recently used metagenes when full."""
-        # Fill up the LRU cache
-        for i in range(self.manager.lru_cache_size + 1):
-            gene = f"Gene_{i}"
-            self.manager.add_gene(gene)
-            encoded = self.manager.encode([gene])
-            self.manager.capture_metagene(encoded)
-
-        # Ensure the oldest metagene was evicted
-        oldest_codon = self.manager.generate_hash_key(1)
-        self.assertNotIn(oldest_codon, self.manager.metagene_usage,
-                         "Oldest metagene should have been evicted from the LRU cache.")
-
 import random
 import unittest
-from M_E_GA.M_E_Engine import EncodingManager
+
+from src.M_E_GA import EncodingManager
+
 
 class TestEncodingManager(unittest.TestCase):
     """Basic unit tests for the EncodingManager."""

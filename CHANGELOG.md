@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-# [2.0.0-b1] - 2025-2-18
+# [2.0.0-b2] - 2025-2-18
 
 ## Changed
 
@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file. The format 
 - Added unit tests.
 - Fixed the `repair` method in `mutation_manager.py`, using a stack-based approach to match delimiters.
 
+# [2.0.0-b1] - 2025-2-14
+
+## Changed
+
+- Fixed Bug in relative imports
 
 # [2.0.0-b0] - 2025-2-2
 

@@ -18,6 +18,3 @@ tests/test_crossover_manager.py
 tests/test_mutation_manager.py
 tests/test_organism_generator.py
 tests/test_population_manager.py
-tests/__pycache__/__init__.cpython-312.pyc
-tests/__pycache__/test_M_E_Engine.cpython-312-pytest-8.3.4.pyc
-tests/__pycache__/test_M_E_GA_Base.cpython-312-pytest-8.3.4.pyc

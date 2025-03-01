@@ -1,22 +1,19 @@
 Metadata-Version: 2.2
 Name: M-E-GA2
-Version: 1.0.0b3
-Summary: Package includes the M_E_Engine and the M_E_GA_Base together these classes facilitate the development of Mutable Encoding enables Genetic Algorithms.
+Version: 2.0.0b2
+Summary: A Genetic Algorithm framework with Mutable Encoding.
 Home-page: https://github.com/ML-flash/M-E-GA
 Author: Matt Andrews
 Author-email: Matthew.Andrews2024@gmail.com
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: Intended Audience :: Education
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: xxhash
@@ -27,20 +24,21 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # Mutable Encoding enabled Genetic Algorithm (MEGA)
 
 ## Description
-With corporate influence over Artificial Intelligence and Machine Learning growing more and more every day, I believe it is essential for there to be ML projects brought into the sphere of public control and ownership. The Mutable Encoding Enabled Genetic Algorithm (MEGA) is intended as a foundational first step towards the development of advanced Artificial Intelligence as a public asset.
+With corporate influence over Artificial Intelligence and Machine Learning growing more and more every day, I believe it is essential for there to be ML projects brought into the sphere of public control and ownership. The Mutable Encoding Genetic Algorithm (MEGA) is intended as a foundational first step towards the development of advanced AI/ML applications as a public asset.
 
 MEGA is a passion project of mine that I have been working on for a very long time. It represents years of thought, consideration, and study; 20 in fact (more than half my life). The aim of MEGA is to bring new ideas into the sphere of Evolutionary Algorithms. Through leveraging these new ideas, I hope to provide advancements in the field such as:
 
 - Trivialized transfer learning.
 - More biologically inspired computing models.
-- Rapid iteration and deployment through a general-purpose encoding scheme and easily deployable framework.
+- Rapid iteration and deployment through a general-purpose encoding scheme and easily deployable frameworks.
 - A lower barrier to entry in the form of domain-specific encodings.
-- Providing new approaches to Evolutionary Algorithms in general, offering fresh paths for research and advancement. (hopefully)
+- Providing new approaches to Evolutionary Algorithms in general, offering fresh paths for research and advancement.
 
 ## Index
 1. [Description](#description)

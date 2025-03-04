@@ -8,12 +8,12 @@ from threading import Thread
 # -------------------------------
 # Adjust these imports based on your project structure.
 from M_E_GA import M_E_GA_Base
-from Leading_ones import LeadingOnesFitness
+from M_E_GA_fitness_funcs import LeadingOnesFitness
 
 # -------------------------------
 # Global Settings and Seed
 # -------------------------------
-MAX_LENGTH = 2000
+MAX_LENGTH = 20000
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
@@ -44,19 +44,19 @@ genes = fitness_function.genes
 # -------------------------------
 config = {
     'mutation_prob': 0.15,
-    'delimited_mutation_prob': 0.10,
-    'open_mutation_prob': 0.09,
-    'metagene_mutation_prob': 0.5,
+    'delimited_mutation_prob': 0.05,
+    'open_mutation_prob': 0.08,
+    'metagene_mutation_prob': 0.05,
     'delimiter_insert_prob': 0.03,
-    'delimit_delete_prob': 0.05,
-    'crossover_prob': 0.6,
+    'delimit_delete_prob': 0.06,
+    'crossover_prob': 0.0,
     'elitism_ratio': 0.7,
     'base_gene_prob': 0.35,
     'metagene_prob': 0.02,
-    'max_individual_length': 40,
+    'max_individual_length': 90,
     'population_size': 500,
     'num_parents': 300,
-    'max_generations': 8000,
+    'max_generations': 200,
     'delimiters': False,
     'delimiter_space': 2,
     'logging': True,

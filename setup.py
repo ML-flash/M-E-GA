@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="M-E-GA2",
-    version="2.0.0-b4",
+    version="2.0.0-b5",
     author="Matt Andrews",
     author_email="Matthew.Andrews2024@gmail.com",
     description="A Genetic Algorithm framework with Mutable Encoding.",

@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-# [2.0.0-b2] - 2025-2-28
+# [2.0.0-b4] - 2025-3-4
+
+## Changed
+
+added missing __init__.py files.
+
+
+# [2.0.0-b3] - 2025-2-28
 
 ## Changed
 - No changes. Cleaning up a broken .egg that snuk into the b2 release.

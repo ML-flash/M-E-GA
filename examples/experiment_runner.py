@@ -1,22 +1,19 @@
-# experiment_runner_with_realtime_integration.py
+# experiment_runner_with_dashboard.py
 import random
-import threading
-import time
-import networkx as nx
+import datetime
 from threading import Thread
-import matplotlib.pyplot as plt
-import queue  # For thread-safe communication
 
 # -------------------------------
 # GA and Fitness Function Imports
 # -------------------------------
+# Adjust these imports based on your project structure.
 from M_E_GA import M_E_GA_Base
 from M_E_GA_fitness_funcs import LeadingOnesFitness
 
 # -------------------------------
 # Global Settings and Seed
 # -------------------------------
-MAX_LENGTH = 4000
+MAX_LENGTH = 20000
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
@@ -46,20 +43,20 @@ genes = fitness_function.genes
 # GA Configuration Parameters
 # -------------------------------
 config = {
-    'mutation_prob': 0.10,
+    'mutation_prob': 0.15,
     'delimited_mutation_prob': 0.05,
-    'open_mutation_prob': 0.10,
-    'metagene_mutation_prob': 0.07,
+    'open_mutation_prob': 0.08,
+    'metagene_mutation_prob': 0.05,
     'delimiter_insert_prob': 0.03,
-    'delimit_delete_prob': 0.02,
+    'delimit_delete_prob': 0.06,
     'crossover_prob': 0.0,
     'elitism_ratio': 0.7,
-    'base_gene_prob': 0.30,
+    'base_gene_prob': 0.35,
     'metagene_prob': 0.02,
-    'max_individual_length': 50,
-    'population_size': 700,
+    'max_individual_length': 90,
+    'population_size': 500,
     'num_parents': 300,
-    'max_generations': 500,
+    'max_generations': 200,
     'delimiters': False,
     'delimiter_space': 2,
     'logging': True,
@@ -68,225 +65,251 @@ config = {
     'crossover_logging': True,
     'individual_logging': True,
     'seed': GLOBAL_SEED,
-    'lru_cache_size': 75
+    'lru_cache_size': 100
 }
 
 # -------------------------------
 # Initialize the GA
 # -------------------------------
-ga = M_E_GA_Base(
-    genes,
-    lambda ind, ga_instance: fitness_function.compute(ind, ga_instance),
-    **config
-)
-# (If experiment_name is not provided, you'll be prompted.)
+ga = M_E_GA_Base(genes,
+                 lambda ind, ga_instance: fitness_function.compute(ind, ga_instance),
+                 **config)
 
 # -------------------------------
-# Helper Functions for DAG Building
+# DASH Dashboard Setup
+# -------------------------------
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
+import plotly.graph_objects as go
+import networkx as nx
+
+app = dash.Dash(__name__)
+app.title = "Metagenome Real-Time Dashboard"
+
+app.layout = html.Div([
+    html.H1("Real-Time Metagenome Visualization"),
+    html.Div(id='stats-div'),
+    dcc.Graph(id='dag-graph'),
+    # Show recent logger events (if any)
+    html.Div(id='logger-events'),
+    # Update every 5 seconds
+    dcc.Interval(id='interval-component', interval=5000, n_intervals=0)
+])
+
+
+# -------------------------------
+# Helper functions for hierarchy computation
 # -------------------------------
 def compute_metagene_order(mg, encoding_manager, memo):
+    """
+    Recursively compute the order (hierarchy level) of a metagene.
+    Base genes are order 0.
+    A metagene that references only base genes gets order 1.
+    Otherwise, its order is max(order(child)) + 1.
+    """
+    # Use memoization to avoid cycles/repeat work.
     if mg in memo:
         return memo[mg]
+
+    # Get the encoding (tuple) for this metagene.
     encoding = encoding_manager.encodings.get(mg, ())
     orders = []
     for element in encoding:
+        # If the element is itself a metagene, compute its order.
         if element in encoding_manager.meta_genes:
             child_order = compute_metagene_order(element, encoding_manager, memo)
             orders.append(child_order)
         else:
+            # Base genes (uploaded genes) are order 0.
             orders.append(0)
-    order = max(orders, default=0) + 1
+    order = max(orders, default=0) + 1  # at least order 1 if it contains only base genes
     memo[mg] = order
     return order
 
+def get_node_order(node, encoding_manager):
+    """
+    Return the order for the given node.
+    Base genes (uploaded) are order 0.
+    For metagenes, compute recursively.
+    """
+    if node in encoding_manager.meta_genes:
+        return compute_metagene_order(node, encoding_manager, memo={})
+    else:
+        return 0  # base gene
+
+# -------------------------------
+# Build the DAG with a Custom Hierarchical Layout
+# -------------------------------
 def build_dag_custom(encoding_manager):
+    """
+    Build a directed graph where:
+      - Base genes (uploaded genes) are considered the root (order 0).
+      - Each captured metagene is added and assigned an order based on its composition.
+      - An edge is added from a metagene to each gene it references.
+      - The x-axis position is assigned based on the order (e.g. order * constant).
+    """
     G = nx.DiGraph()
+
     # Add base gene nodes.
+    # Base genes are those present in the reverse encoding dictionary but not in meta_genes.
     for gene, hash_key in encoding_manager.reverse_encodings.items():
+        # We exclude the reserved names 'Start' and 'End'
         if gene in ['Start', 'End']:
             continue
         if hash_key not in encoding_manager.meta_genes:
             G.add_node(hash_key, group="base", label=f"Base: {gene}")
+
     # Add metagene nodes.
     for mg in encoding_manager.meta_genes:
+        # We tag metagenes simply as "meta"
         order = compute_metagene_order(mg, encoding_manager, memo={})
         G.add_node(mg, group="meta", label=f"MG {mg}\n(order {order})", order=order)
-    # Add edges from each metagene to the genes it references.
+
+    # Add edges: for each metagene, add an edge to each element in its encoding.
     for mg in encoding_manager.meta_genes:
         encoding = encoding_manager.encodings.get(mg)
         if isinstance(encoding, tuple):
             for element in encoding:
+                # If the element isn’t already in the graph (e.g. base gene), add it.
                 if not G.has_node(element):
+                    # It is a base gene.
                     gene_label = encoding_manager.encodings.get(element, element)
                     G.add_node(element, group="base", label=f"Base: {gene_label}")
                 G.add_edge(mg, element)
-    # Create a custom layout.
+
+    # Manually assign positions:
+    # x coordinate will be proportional to the order.
+    # y coordinate: distribute nodes in each order level vertically.
     pos = {}
+    # Gather nodes by order.
     order_groups = {}
     for node, data in G.nodes(data=True):
+        # For base genes, we assign order 0.
         order_val = data.get("order", 0)
         order_groups.setdefault(order_val, []).append(node)
+
+    # Define spacing constants.
     x_spacing = 0.3
     y_top = 1.0
     y_bottom = 0.0
+
     for order_val, nodes in order_groups.items():
-        x_val = order_val * x_spacing
+        x_val = order_val * x_spacing  # e.g., 0 for order 0, 0.3 for order 1, etc.
         nodes.sort(key=lambda n: str(n))
         count = len(nodes)
         for i, node in enumerate(nodes):
-            y_val = y_top - i * ((y_top - y_bottom) / (count - 1)) if count > 1 else 0.5
+            # Evenly space vertically.
+            if count > 1:
+                y_val = y_top - i * ((y_top - y_bottom) / (count - 1))
+            else:
+                y_val = 0.5
             pos[node] = (x_val, y_val)
+
     return G, pos
 
 # -------------------------------
-# Flask and SocketIO Setup
+# Dashboard Callbacks
 # -------------------------------
-from flask import Flask, jsonify
-from flask_socketio import SocketIO
-
-app = Flask(__name__, static_folder='../react_app/build', static_url_path='/')
-socketio = SocketIO(app, cors_allowed_origins="*")
-
-@app.route('/api/stats')
-def stats():
+@app.callback(Output('stats-div', 'children'),
+              [Input('interval-component', 'n_intervals')])
+def update_stats(n):
     status = ga.encoding_manager.get_metagene_status()
-    return jsonify({
-        'generation': status.get('generation', 'N/A'),
-        'total_metagenes': status.get('total_metagenes', 0),
-        'in_basket': status.get('in_basket', 0)
-    })
+    return html.Div([
+        html.P(f"Current Generation: {status.get('generation', 'N/A')}"),
+        html.P(f"Total Metagenes: {status.get('total_metagenes', 0)}"),
+        html.P(f"Deletion Basket: {status.get('in_basket', 0)}")
+    ])
 
-@app.route('/api/dag')
-def dag():
+@app.callback(Output('logger-events', 'children'),
+              [Input('interval-component', 'n_intervals')])
+def update_logger_events(n):
+    # Display the last 5 events from the logger.
+    if ga.logger is not None and hasattr(ga.logger, "events"):
+        events = ga.logger.events[-5:]
+        items = [html.Li(f"{e['timestamp']} - {e['event_type']}: {e['details']}") for e in events]
+        return html.Div([html.H4("Recent Logger Events"), html.Ul(items)])
+    return "No logger events."
+
+@app.callback(Output('dag-graph', 'figure'),
+              [Input('interval-component', 'n_intervals')])
+def update_dag(n):
     G, pos = build_dag_custom(ga.encoding_manager)
-    nodes = []
+
+    # Build edge traces.
+    edge_x, edge_y = [], []
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=2, color='#888'),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    # Build node traces.
+    node_x, node_y, node_text, node_color = [], [], [], []
+    # Define colors for groups.
+    group_color = {"base": "orange", "meta": "blue"}
     for node, data in G.nodes(data=True):
         x, y = pos[node]
-        nodes.append({
-            'id': node,
-            'group': data.get("group", "meta"),
-            'label': data.get("label", str(node)),
-            'x': x,
-            'y': y
-        })
-    edges = []
-    for source, target in G.edges():
-        edges.append({'source': source, 'target': target})
-    return jsonify({
-        'nodes': nodes,
-        'edges': edges,
-        'generation': ga.encoding_manager.current_generation
-    })
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(data.get("label", str(node)))
+        group = data.get("group", "meta")
+        node_color.append(group_color.get(group, "blue"))
 
-@app.route('/')
-def index():
-    return app.send_static_file('index.html')
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers+text',
+        text=node_text,
+        textposition='top center',
+        hoverinfo='text',
+        marker=dict(
+            size=20,
+            color=node_color,
+            line=dict(width=2)
+        )
+    )
 
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected via SocketIO')
+    fig = go.Figure(
+        data=[edge_trace, node_trace],
+        layout=go.Layout(
+            title=f"Metagenome Hierarchy at Generation {ga.encoding_manager.current_generation}",
+            showlegend=False,
+            hovermode='closest',
+            margin=dict(b=20, l=5, r=5, t=40),
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
+        )
+    )
+    return fig
 
-def background_thread():
-    """Continuously emit GA updates over SocketIO."""
-    while True:
-        socketio.sleep(1)
-        G, pos = build_dag_custom(ga.encoding_manager)
-        nodes = []
-        for node, data in G.nodes(data=True):
-            x, y = pos[node]
-            nodes.append({
-                'id': node,
-                'group': data.get("group", "meta"),
-                'label': data.get("label", str(node)),
-                'x': x,
-                'y': y
-            })
-        edges = []
-        for source, target in G.edges():
-            edges.append({'source': source, 'target': target})
-        payload = {
-            'nodes': nodes,
-            'edges': edges,
-            'generation': ga.encoding_manager.current_generation
-        }
-        socketio.emit('dag_update', payload)
-
-socketio.start_background_task(target=background_thread)
+def run_dashboard():
+    app.run_server(debug=False, port=8050)
 
 # -------------------------------
-# Native Real-Time Plotting Setup Using a Queue
+# Start the Dashboard in a Background Thread
 # -------------------------------
-# Create a thread-safe queue to signal when a plot update is requested.
-update_queue = queue.Queue()
-
-def update_plot_callback(event):
-    """
-    This callback is invoked by the GA logger.
-    Instead of updating the plot directly from a background thread,
-    we push a message into the update queue.
-    """
-    if event['event_type'] in ("generation_summary", "metagene_captured", "metagene_deleted"):
-        print(f"[Plot] Event: {event['event_type']} at {event['timestamp']}")
-        update_queue.put("update")
-
-if ga.logger:
-    ga.logger.subscribe(update_plot_callback)
-
-def update_plot():
-    """Perform the actual matplotlib plot update (this runs on the main thread)."""
-    G, pos = build_dag_custom(ga.encoding_manager)
-    plt.clf()
-    nx.draw(G, pos, with_labels=True, node_color='skyblue', node_size=600, font_size=8)
-    plt.title(f"Generation: {ga.encoding_manager.current_generation}")
-    plt.draw()
+dashboard_thread = Thread(target=run_dashboard, daemon=True)
+dashboard_thread.start()
 
 # -------------------------------
-# GA Run Function
+# Run the GA Algorithm
 # -------------------------------
-def run_ga():
-    ga.run_algorithm()
-    best_genome = best_organism["genome"]
-    best_fitness = best_organism["fitness"]
-    best_solution_decoded = ga.decode_organism(best_genome, format=True)
-    print('GA completed')
-    print('Length of best solution:', len(best_solution_decoded))
-    print(f"Best Solution (Decoded): {best_solution_decoded}, Fitness: {best_fitness}")
-    print('Length of best genome:', len(best_genome))
-    print(f"Best Genome (Encoded): {best_genome}")
+ga.run_algorithm()
 
 # -------------------------------
-# Main Section: Start Threads and Run Main GUI Loop
+# After the GA completes, print the best solution
 # -------------------------------
-if __name__ == '__main__':
-    # Start the GA in its own thread.
-    ga_thread = Thread(target=run_ga)
-    ga_thread.daemon = True
-    ga_thread.start()
+best_genome = best_organism["genome"]
+best_fitness = best_organism["fitness"]
+best_solution_decoded = ga.decode_organism(best_genome, format=True)
 
-    # Start the SocketIO server in its own thread.
-    def run_socketio():
-        socketio.run(app, debug=False, port=5000)
-    socketio_thread = Thread(target=run_socketio)
-    socketio_thread.daemon = True
-    socketio_thread.start()
-
-    # Set up matplotlib in interactive mode and force the window to appear.
-    plt.ion()
-    fig = plt.figure()
-    plt.show(block=False)
-
-    print("Starting main GUI loop in the main thread...")
-    try:
-        while True:
-            # Process all pending update messages.
-            while not update_queue.empty():
-                try:
-                    msg = update_queue.get_nowait()
-                    if msg == "update":
-                        update_plot()
-                except queue.Empty:
-                    break
-            # Always call plt.pause to allow the GUI event loop to process.
-            plt.pause(0.1)
-    except KeyboardInterrupt:
-        print("Exiting main GUI loop.")
+print('Length of best solution:', len(best_solution_decoded))
+print(f"Best Solution (Decoded): {best_solution_decoded}, Fitness: {best_fitness}")
+print('Length of best genome:', len(best_genome))
+print(f"Best Genome (Encoded): {best_genome}")

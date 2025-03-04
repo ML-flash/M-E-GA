@@ -1,1 +1,9 @@
-examples/logs_and_log_tools/_2025-02-10_13-26-42.json
+src/M_E_GA/__pycache__/
+src/M_E_GA/engine/__pycache__/
+src/M_E_GA/engine/mutation/__pycache__/
+tests/__pycache__/
+.idea/
+venv/
+logs_and_log_tools
+projectToPromptConfig.json
+TODO.md

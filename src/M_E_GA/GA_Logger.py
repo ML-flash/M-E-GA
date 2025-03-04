@@ -1,12 +1,15 @@
-import json
 import datetime
+import json
 import os
 
 
 class GA_Logger:
     def __init__(self, experiment_name, log_directory="MEGA Logs"):
         """
-        Initialize the logger with an experiment name and a directory where logs will be saved.
+        Initialize the GA_Logger instance.
+
+        :param experiment_name: The name of the experiment, used for generating log filenames.
+        :param log_directory: The directory where log files will be stored. Defaults to "MEGA Logs" in the user's home directory.
         """
         self.experiment_name = experiment_name
         self.log_directory = os.path.join(os.path.expanduser("~"), log_directory)
@@ -15,8 +18,9 @@ class GA_Logger:
 
     def subscribe(self, callback):
         """
-        Subscribe a callback function to be called every time a new event is logged.
-        The callback should accept one argument (the event dictionary).
+        Subscribe a callback function to receive real-time event notifications.
+
+        :param callback: A function that takes a single argument (event dictionary) and processes it.
         """
         self.subscribers.append(callback)
 

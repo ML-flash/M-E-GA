@@ -2,6 +2,7 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
 # [2.0.0-b6] - 2025-03-06
 
 ## Fixed
@@ -10,6 +11,7 @@ All notable changes to this project will be documented in this file. The format 
 ## Changed
 - **EncodingManager**: Updated to explicitly share the `unused_encodings` reference with `meta_manager` to ensure proper recycling of hash keys.
 - **MetaGeneManager**: Enhanced the deletion process to safely iterate through all metagenes and correctly replace dependencies.
+
 
 # [2.0.0-b5] - 2025-3-4
 

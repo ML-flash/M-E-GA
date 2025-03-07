@@ -12,8 +12,9 @@ class LeadingOnesFitness:
         # Decode the individual
         decoded_individual = ga_instance.decode_organism(encoded_individual)
 
-        # Initialize fitness score
+        # Initialize fitness score and count of consecutive target genes
         fitness_score = 0
+        target_count = 0
 
         # Count leading target genes (either '1' or '0' depending on phase)
         for i, gene in enumerate(decoded_individual):
@@ -22,13 +23,45 @@ class LeadingOnesFitness:
 
             if gene == self.target_gene:
                 fitness_score += 1
+                target_count += 1
             else:
                 break  # Stop at first mismatch
 
-        # If we reached the target max_length, switch optimization goal
-        if fitness_score == self.max_length:
+        # Apply penalty for exceeding target length
+        if len(decoded_individual) > self.max_length:
+            # Penalty of 0.5 points per extra gene
+            extra_length = len(decoded_individual) - self.max_length
+            fitness_score -= 0.5 * extra_length
+
+        # If we have enough consecutive target genes, switch optimization goal
+        if target_count >= self.max_length:
             self.phase = 2 if self.phase == 1 else 1  # Toggle between phases
             self.target_gene = '0' if self.phase == 2 else '1'  # Update target
+            
+            # Reset the best organism tracking
+            # We need to access the outer scope variable through the experiment runner
+            print(f"Target reached! Switching to phase {self.phase}, targeting '{self.target_gene}'")
+            print("Resetting best organism tracking for new phase")
+            
+            # Since we can't directly modify the best_organism dictionary in the main script,
+            # we'll create a signal to the experiment runner to reset it
+            self.reset_best_organism = True
+            
+            # We also need to modify the update_best_func behavior temporarily
+            # Store the original function
+            self._original_update_best = self.update_best
+            
+            # Replace with a version that updates the runner's best_organism dict
+            def reset_update_best(genome, fitness, verbose=True):
+                # Call the original function, which will handle the experiment runner's dictionary
+                self._original_update_best(genome, fitness, verbose=verbose)
+                # Reset our flag once it's been used
+                self.reset_best_organism = False
+                # Restore the original function
+                self.update_best = self._original_update_best
+                
+            # Set the update function to our temporary version
+            self.update_best = reset_update_best
 
         # Update the best organism using the passed function
         self.update_best(encoded_individual, fitness_score, verbose=True)

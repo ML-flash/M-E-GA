@@ -25,7 +25,7 @@ from Leading_ones import LeadingOnesFitness
 # -------------------------------
 # Global Settings and Seed
 # -------------------------------
-MAX_LENGTH = 20
+MAX_LENGTH = 1000
 GLOBAL_SEED = None
 random.seed(GLOBAL_SEED)
 
@@ -71,7 +71,7 @@ config = {
     'max_individual_length': 40,
     'population_size': 500,
     'num_parents': 300,
-    'max_generations': 8000,
+    'max_generations': 2000,
     'delimiters': False,
     'delimiter_space': 2,
     'logging': True,

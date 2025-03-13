@@ -9,6 +9,7 @@ Created on Thu Mar  7 13:09:43 2024
 The central coordinating class for the Genetic Algorithm engine.
 
 """
+
 import datetime
 import json
 import os
@@ -66,6 +67,7 @@ class M_E_GA_Base:
             metagene_prob=0.0,
             fitness_evaluator=None,
             lru_cache_size=100,
+            strict_decode=False,
             **kwargs
     ):
         """
@@ -104,6 +106,7 @@ class M_E_GA_Base:
         :param fitness_evaluator: An object that handles population-level fitness evaluation
                                   (overrides fitness_function if provided).
         :param lru_cache_size: The size of the LRU cache for metagene usage.
+        :param strict_decode: If True, re-raise any unknown-codon ValueError encountered during cleanup.
         :param kwargs: Additional arguments that might be used in extended setups.
         """
         self.genes = genes
@@ -146,6 +149,7 @@ class M_E_GA_Base:
         self.fitness_scores = []
 
         self.lru_cache_size = lru_cache_size
+        self.strict_decode = strict_decode
 
         # Seed the RNG if provided
         if seed is not None:
@@ -154,7 +158,6 @@ class M_E_GA_Base:
         # Setup real-time event logger if logging is on
         if self.logging:
             if self.experiment_name is None:
-                # Could prompt or default
                 self.experiment_name = "UnnamedExperiment"
             self.logger = GA_Logger(self.experiment_name)
         else:
@@ -173,7 +176,7 @@ class M_E_GA_Base:
         self.mutation_manager = MutationManager(self)
         self.crossover_manager = CrossoverManager(self)
 
-        # Instantiate the LoggingManager, used for generation-level logs
+        # Instantiate the LoggingManager
         self.logging_manager = LoggingManager(
             logging_enabled=self.logging,
             generation_logging=self.generation_logging,
@@ -183,16 +186,22 @@ class M_E_GA_Base:
             logger=self.logger
         )
 
-    def decode_organism(self, encoded_organism, format=False):
+    def decode_organism(self, encoded_organism, format=False, raise_on_unknown=False):
         """
         Decode an encoded organism into its gene representation.
 
         :param encoded_organism: The list/tuple of codons (hash keys).
         :param format: If True, remove 'Start'/'End' from the result.
+        :param raise_on_unknown: If True, raise an exception upon encountering unknown codons.
         :return: A list of decoded genes, possibly excluding delimiters if format=True.
         """
         encoded_organism = tuple(encoded_organism)
-        decoded_genes = self.encoding_manager.decode(encoded_organism, verbose=False)
+        decoded_genes = self.encoding_manager.gene_manager.decode_genes(
+            encoded_organism,
+            update_usage_func=self.encoding_manager.meta_manager.update_metagene_usage,
+            raise_on_unknown=raise_on_unknown,
+            decode_context="M_E_GA_Base.decode_organism"
+        )
         if format:
             decoded_genes = [g for g in decoded_genes if g not in ['Start', 'End']]
         return decoded_genes
@@ -217,7 +226,6 @@ class M_E_GA_Base:
     def initialize_population(self):
         """
         Public method to initialize the population using the population manager.
-        Useful for advanced usage if you want to manually do an 'init' step.
 
         :return: A newly generated population (list of organism encodings).
         """
@@ -232,47 +240,40 @@ class M_E_GA_Base:
         2. For each generation:
             a) Log the generation start
             b) Evaluate fitness
-            c) Log generation stats
-            d) Generate new population
-            e) Possibly log additional individual stats
+            c) Handle meta-gene deletion/inlining
+            d) Log generation stats
+            e) Generate new population
+            f) Possibly log additional individual stats
         3. Dump logs, print final encodings
         """
-        # 1. Initialize population if empty
         if not self.population:
             self.population = self.population_manager.initialize_population()
 
-        # 2. Main loop
         for generation in range(self.max_generations):
             self.current_generation = generation
-            # Start new generation log
             self.logging_manager.start_new_generation_logging(generation)
 
-            # Start new generation in encoding manager (for LRU usage/deletion)
-            self.encoding_manager.start_new_generation()
-
-            # Evaluate fitness
             self.fitness_scores = self.population_manager.evaluate_population_fitness(self.population)
 
-            # Generation summary log
+            # *** MetaGene Deletion Pass ***
+            self.encoding_manager.start_new_generation(population=self.population)
+
+            self.cleanup_population_references()
+
             self.logging_manager.log_generation(generation, self.fitness_scores, self.population)
 
-            # Print short info
             avg_fit = sum(self.fitness_scores) / len(self.fitness_scores)
             print(f"Generation {generation}: Average Fitness = {avg_fit}")
 
-            # Generate next population
             self.population = self.population_manager.select_and_generate_new_population(
                 self.population, self.fitness_scores, generation
             )
 
-            # Optional user callback
             if self.before_generation_finalize:
                 self.before_generation_finalize(self)
 
-            # If individual logging is on, store each individual's data
             self.logging_manager.individual_logging_fitness(generation, self.population, self.fitness_scores)
 
-        # 3. After finishing all generations
         print(self.encoding_manager.encodings)
 
         if self.logging:
@@ -300,7 +301,7 @@ class M_E_GA_Base:
                 "final_fitness_scores": self.fitness_scores,
                 "genes": self.genes,
                 "final_encodings": self.encoding_manager.encodings,
-                "logs": self.logging_manager.get_logs()  # Grab everything from the LoggingManager
+                "logs": self.logging_manager.get_logs()
             }
             log_folder = "logs_and_log_tools"
             if not os.path.exists(log_folder):
@@ -311,6 +312,23 @@ class M_E_GA_Base:
             with open(log_filename, 'w') as f:
                 json.dump(final_log, f, indent=4)
 
-            # Also save the GA_Logger events if it exists
             if self.logger:
                 self.logger.save()
+
+    def cleanup_population_references(self):
+        """
+        A strict decode pass across the entire population. If an unknown codon
+        remains, we log a warning or raise an error if self.strict_decode is True.
+        """
+        for org_idx, org in enumerate(self.population):
+            try:
+                self.encoding_manager.gene_manager.decode_genes(
+                    tuple(org),
+                    update_usage_func=self.encoding_manager.meta_manager.update_metagene_usage,
+                    raise_on_unknown=True,
+                    decode_context=f"cleanup_population_references for org_idx {org_idx}"
+                )
+            except ValueError as e:
+                print(f"[cleanup_population_references] Unknown reference in organism {org_idx}: {e}")
+                if self.strict_decode:
+                    raise

@@ -111,15 +111,14 @@ class TestRobustMetageneRecycling(unittest.TestCase):
         segment_size = random.randint(1, max_segment_size)
         segment = []
         all_possible = list(self.manager.reverse_encodings.keys())  # base genes
-        # also allow references to existing metagenes:
+        # also allow references to existing_metagenes:
         all_possible.extend(existing_metagenes)
 
         for _ in range(segment_size):
-            # 50/50 chance to choose either a base gene or an existing metagene reference
             choice = random.choice(all_possible)
             segment.append(choice)
 
-        # Convert them to hash keys via encode()
+        # Convert them to hash keys via encode(), which filters out anything not recognized as a gene string
         return self.manager.encode(segment)
 
     def test_robust_recycling(self):
@@ -138,9 +137,7 @@ class TestRobustMetageneRecycling(unittest.TestCase):
 
             # --- CREATE ---
             if action == "create" or (not existing_metagenes):
-                # Build a random segment
                 segment = self.build_random_segment(existing_metagenes, max_segment_size=3)
-                # Capture it
                 new_mg = self.manager.capture_metagene(segment)
                 existing_metagenes.append(new_mg)
 
@@ -148,16 +145,14 @@ class TestRobustMetageneRecycling(unittest.TestCase):
             elif action == "delete" and existing_metagenes:
                 doomed = random.choice(existing_metagenes)
                 self.manager.deletion_basket[doomed] = 2
-                # Trigger the manager to process the deletion
                 self.manager.start_new_generation()
 
-                # If truly removed from meta_genes, drop from our local tracking
+                # If truly removed from meta_genes, drop from local tracking
                 if doomed not in self.manager.meta_genes:
                     existing_metagenes.remove(doomed)
 
             # --- REUSE ---
             elif action == "reuse" and self.manager.unused_encodings:
-                # Reuse a freed codon by capturing another new segment
                 segment = self.build_random_segment(existing_metagenes, max_segment_size=2)
                 reused = self.manager.capture_metagene(segment)
                 existing_metagenes.append(reused)
@@ -169,7 +164,7 @@ class TestRobustMetageneRecycling(unittest.TestCase):
             # Validate: every "active" metagene must decode with no 'Unknown'
             for mg in existing_metagenes:
                 if mg in self.manager.meta_genes:
-                    decoded = self.manager.decode((mg,))
+                    decoded = self.manager.decode((mg,), verbose=False)
                     self.assertNotIn(
                         'Unknown', decoded,
                         f"Metagene {mg} decoded as 'Unknown' but was supposed to be valid: {decoded}"
@@ -181,11 +176,64 @@ class TestRobustMetageneRecycling(unittest.TestCase):
         # Final check: decode all still-active metagenes
         for mg in existing_metagenes:
             if mg in self.manager.meta_genes:
-                decoded = self.manager.decode((mg,))
+                decoded = self.manager.decode((mg,), verbose=False)
                 self.assertNotIn(
                     'Unknown', decoded,
                     f"Final check: Metagene {mg} unexpectedly contains 'Unknown'."
                 )
+
+    def test_multi_generation_stress(self):
+        """
+        Force multiple generations where we repeatedly create, use,
+        and then fail to use meta-genes so they're deleted. We decode
+        in strict mode each time to ensure no 'Unknown' emerges.
+        """
+        manager = EncodingManager()
+        manager.debug = False
+
+        # Add some base genes
+        base_genes = ['A', 'B', 'C', 'D', 'E', 'F']
+        for g in base_genes:
+            manager.add_gene(g)
+
+        # We'll simulate 10 generations of random usage:
+        population = []
+        population_size = 2000
+        max_len = 10
+
+        # init population
+        for _ in range(population_size):
+            length = random.randint(2, max_len)
+            organism = manager.generate_random_organism(
+                functional_length=length,
+                include_specials=False,  # keep it simple
+                probability=0.0
+            )
+            population.append(organism)
+
+        generations = 100
+        for gen in range(generations):
+            # random chance to capture a chunk of each organism as meta-gene
+            for i, org in enumerate(population):
+                if random.random() < 0.3 and len(org) >= 2:
+                    start_idx = random.randint(0, len(org) - 2)
+                    end_idx = start_idx + 2
+                    segment = org[start_idx:end_idx]
+                    manager.capture_metagene(segment)
+
+            # decode in strict mode to ensure no 'Unknown' so far
+            for idx, org in enumerate(population):
+                manager.gene_manager.decode_genes(tuple(org), raise_on_unknown=True,
+                                                  decode_context="Population top-level decode")
+
+            manager.start_new_generation(population=population)
+
+            # Another strict decode after deletions
+            for idx, org in enumerate(population):
+                manager.gene_manager.decode_genes(tuple(org), raise_on_unknown=True,
+                                                  decode_context="Population post-delete decode")
+
+        self.assertTrue(True, "Multi-generation stress test passed with no 'Unknown' references.")
 
 
 if __name__ == '__main__':

@@ -66,7 +66,7 @@ class EncodingManager:
         )
         # Explicitly share the unused_encodings reference with meta_manager
         self.meta_manager.unused_encodings = self.unused_encodings
-        
+
         self.organism_generator = OrganismGenerator(
             gene_manager=self.gene_manager,
             reverse_encodings=self.reverse_encodings,
@@ -144,13 +144,14 @@ class EncodingManager:
     # -------------------------------------------------------------------------
     # Delegating to MetaGeneManager
     # -------------------------------------------------------------------------
-    def start_new_generation(self):
+    def start_new_generation(self, population=None):
         """
         Advance the generation in the meta_manager and handle LRU + deletion.
+
+        :param population: Optional population to inline references in if meta-genes get deleted.
         """
-        # Make sure the meta_manager has the current reference to unused_encodings
         self.meta_manager.unused_encodings = self.unused_encodings
-        self.meta_manager.start_new_generation()
+        self.meta_manager.start_new_generation(population=population)
 
     def get_metagene_status(self):
         """

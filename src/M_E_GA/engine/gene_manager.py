@@ -36,7 +36,7 @@ class GeneManager:
     def add_gene(self, gene, verbose=False, predefined_id=None, generate_hash_key_func=None, unused_encodings=None,
                  gene_counter_ref=None):
         """
-        Adds a new gene to the encodings unless it already exists. Returns its hash key.
+        Add a new gene to the encodings unless it already exists. Returns its hash key.
 
         :param gene: The gene string to add.
         :param verbose: If True, prints additional information.
@@ -91,15 +91,21 @@ class GeneManager:
         return encoded_list
 
     @functools.lru_cache(maxsize=1000)
-    def decode_genes(self, encoded_tuple, update_usage_func=None):
+    def decode_genes(self, encoded_tuple, update_usage_func=None, raise_on_unknown=False, decode_context=None):
         """
         Decodes an encoded tuple of hash keys back into the original gene sequence.
         Utilizes an LRU cache for efficiency.
 
         :param encoded_tuple: A tuple (or a single int) representing encoded genes/metagenes.
         :param update_usage_func: Callback to update usage record for meta-genes, if needed.
-        :return: A list of gene strings, which may also contain "Unknown".
+        :param raise_on_unknown: If True, raise an exception upon encountering an unknown hash key.
+        :param decode_context: Optional string describing where or why we're decoding (for debugging).
+        :return: A list of gene strings, which may also contain "Unknown" if raise_on_unknown=False.
+        :raises ValueError: If raise_on_unknown=True and an unknown hash key is encountered.
         """
+        if decode_context is None:
+            decode_context = "No decode context provided"
+
         if not encoded_tuple:
             return []
 
@@ -123,6 +129,10 @@ class GeneManager:
                 else:
                     decoded_sequence.append(value)
             else:
+                if raise_on_unknown:
+                    raise ValueError(
+                        f"[decode_genes ERROR] Unknown hash key {hash_key} in decode context: '{decode_context}'"
+                    )
                 decoded_sequence.append("Unknown")
 
         return decoded_sequence

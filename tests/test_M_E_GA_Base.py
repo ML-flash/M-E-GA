@@ -34,7 +34,7 @@ class TestM_E_GA_Base(unittest.TestCase):
             genes=self.base_genes,
             fitness_function=dummy_fitness_function,
             fitness_evaluator=DummyFitnessEvaluator(),
-            logging=False,  # Turn on if you want to see JSON logs, e.g. True
+            logging=False,  # Turn on if you want logs
             experiment_name="UnitTest_GA_Base",
             population_size=6,
             num_parents=2,
@@ -75,8 +75,6 @@ class TestM_E_GA_Base(unittest.TestCase):
         # Now decode it back
         decoded = self.ga.decode_organism(encoded, format=False)
         # The decode might include 'Start'/'End' if used—depends on your manager setup
-        # For a simple test, let's just confirm that 'A', 'B', 'C' appear in order.
-        # The presence of optional delimiters won't break the test, we only assert containment.
         for gene in ['A', 'B', 'C']:
             self.assertIn(gene, decoded,
                           f"Decoded organism should contain gene '{gene}'.")
@@ -86,28 +84,17 @@ class TestM_E_GA_Base(unittest.TestCase):
         Do a short run of the GA with a dummy fitness function.
         Confirm no errors occur, and that we end up with a final population/logs.
         """
-        # Run the GA (this calls initialize_population and goes through max_generations)
         self.ga.run_algorithm()
 
-        # After run_algorithm(), we expect:
-        #  1) self.ga.population is the final population
-        #  2) self.ga.fitness_scores is the last generation's fitness
         self.assertEqual(len(self.ga.population), self.ga.population_size,
                          "Final population size should remain consistent with population_size.")
         self.assertEqual(len(self.ga.fitness_scores), self.ga.population_size,
                          "We should have a fitness score for each individual in the final population.")
 
-        # If logging was enabled, check that logs are present
-        if self.ga.logging:
-            self.assertTrue(len(self.ga.logs) > 0,
-                            "If logging is enabled, there should be logs for each generation.")
-
     def test_decode_organism_format_true(self):
         """
         Check that decode_organism with format=True strips out 'Start' and 'End'.
-        This depends on how your M_E_Engine handles them.
         """
-        # Make a small organism with potential Start/End included
         start_codon = self.ga.encoding_manager.reverse_encodings['Start']
         end_codon = self.ga.encoding_manager.reverse_encodings['End']
         organism = [start_codon,
@@ -116,17 +103,47 @@ class TestM_E_GA_Base(unittest.TestCase):
                     end_codon]
 
         decoded_unformatted = self.ga.decode_organism(organism, format=False)
-        # Should include 'Start', 'A', 'B', 'End'
         self.assertIn('Start', decoded_unformatted, "Decoded organism (format=False) should keep 'Start' delimiter.")
         self.assertIn('End', decoded_unformatted, "Decoded organism (format=False) should keep 'End' delimiter.")
 
         decoded_formatted = self.ga.decode_organism(organism, format=True)
-        # Should remove 'Start' and 'End'
         self.assertNotIn('Start', decoded_formatted, "When format=True, 'Start' should be removed from decoded output.")
         self.assertNotIn('End', decoded_formatted, "When format=True, 'End' should be removed from decoded output.")
-        # 'A' and 'B' should remain
         self.assertIn('A', decoded_formatted, "Gene 'A' should remain in the formatted decode.")
         self.assertIn('B', decoded_formatted, "Gene 'B' should remain in the formatted decode.")
+
+    def test_meta_gene_deletion_issue7(self):
+        """
+        Stress test to ensure that meta-gene deletion doesn't leave 'Unknown' references.
+        We configure a GA with frequent meta-gene usage and strict decoding to see if
+        any unknown references appear.
+        """
+        # Setup a new GA instance with heavier meta-gene usage
+        ga = M_E_GA_Base(
+            genes=['G1', 'G2', 'G3', 'G4', 'G5'],
+            fitness_function=dummy_fitness_function,
+            # Make meta-gene capturing more likely:
+            metagene_mutation_prob=0.15,
+            open_mutation_prob=0.10,
+            delimiter_insert_prob=0.10,
+            mutation_prob=0.05,
+            delimited_mutation_prob=0.05,
+            population_size=2000,
+            num_parents=6,
+            max_generations=500,
+            strict_decode=True,  # <-- We want unknown references to throw exceptions
+            logging=False
+        )
+        ga.initialize_population()
+
+        # If the bug triggers "Unknown" references, an exception is raised inside run_algorithm
+        try:
+            ga.run_algorithm()
+        except ValueError as e:
+            self.fail(f"Meta-gene deletion flow caused 'Unknown' reference: {e}")
+
+        # If we get here, we had no unknown references, so presumably the bug didn't occur or it's fixed.
+        self.assertTrue(True, "No 'Unknown' references found during the meta-gene deletion stress test.")
 
 
 if __name__ == '__main__':

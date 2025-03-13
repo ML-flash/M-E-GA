@@ -83,8 +83,6 @@ class TestPopulationManager(unittest.TestCase):
         self.assertEqual(len(new_pop), self.ga.population_size,
                          "New population must remain consistent with population size.")
 
-        # We won't attempt to decode or check specifics here, just confirm no crash or size mismatch.
-
 
 if __name__ == '__main__':
     unittest.main()

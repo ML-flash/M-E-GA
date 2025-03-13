@@ -62,9 +62,8 @@ class MetaGeneManager:
         """
         Retrieve a status report for current metagene usage.
 
-        :return: A dict with generation, total metagenes, how many in basket, unused, etc.
+        :return: A dict with generation, total_metagenes, how many in basket, unused, etc.
         """
-        # We'll sample from meta_genes if debug
         samples = []
         if self.debug and self.meta_genes:
             sample_size = min(3, len(self.meta_genes))
@@ -86,10 +85,15 @@ class MetaGeneManager:
             'samples': samples
         }
 
-    def start_new_generation(self):
+    def start_new_generation(self, population=None):
         """
         Increase generation count, increment usage counters in deletion basket,
-        and remove any that exceed threshold.
+        and remove any that exceed threshold (2 generations unused).
+
+        If we remove them, we also inline references in other metagenes AND
+        optionally in the provided population.
+
+        :param population: Optional population (list of organisms) to inline references within.
         """
         self.current_generation += 1
         to_delete = []
@@ -100,15 +104,15 @@ class MetaGeneManager:
                 to_delete.append(hash_key)
                 if self.debug:
                     print(
-                        f"[MetaGeneManager] Marking metagene {hash_key} for deletion. unused for {gen_count} generations.")
+                        f"[MetaGeneManager] Marking metagene {hash_key} for deletion. Unused for {gen_count} generations.")
             else:
                 self.deletion_basket[hash_key] = gen_count + 1
                 if self.debug:
                     print(f"[MetaGeneManager] Incrementing usage for metagene {hash_key} to {gen_count + 1}.")
 
-        # Do actual deletions without special ordering - relies on proper replacement in delete_metagene
+        # Do actual deletions
         for hash_key in to_delete:
-            self.delete_metagene(hash_key)
+            self.delete_metagene(hash_key, population=population)
 
     def update_metagene_usage(self, hash_key):
         """
@@ -155,12 +159,14 @@ class MetaGeneManager:
         if hash_key in self.meta_gene_stack:
             self.meta_gene_stack.remove(hash_key)
 
-    def delete_metagene(self, hash_key):
+    def delete_metagene(self, hash_key, population=None):
         """
         Delete a metagene from encodings. Inlines references within other metagenes
-        that point to the soon-to-be-deleted one.
+        AND optionally inlines references in the current population if provided.
 
         :param hash_key: The integer key for the metagene to delete.
+        :param population: Optional list of organisms (each is a list of hash keys).
+                           If provided, references in those organisms are also replaced.
         """
         if hash_key not in self.meta_genes or hash_key not in self.encodings:
             return
@@ -168,18 +174,17 @@ class MetaGeneManager:
         # Get the content of the metagene that will be deleted
         target_contents = list(self.encodings[hash_key])
 
-        # Replace references in all other metagenes
-        for meta_key in list(self.meta_genes):  # Create a copy of the list to safely iterate
+        # 1) Replace references in all other metagenes
+        for meta_key in list(self.meta_genes):
             if meta_key == hash_key:
                 continue  # Skip the metagene being deleted
-                
+
             if meta_key not in self.encodings or not isinstance(self.encodings[meta_key], tuple):
                 continue  # Skip invalid metagenes
-                
+
             meta_contents = list(self.encodings[meta_key])
             modified = False
 
-            # Look for references to the hash_key being deleted
             i = 0
             while i < len(meta_contents):
                 if meta_contents[i] == hash_key:
@@ -193,18 +198,45 @@ class MetaGeneManager:
             if modified:
                 self.encodings[meta_key] = tuple(meta_contents)
 
-        # Finally remove references
+        # 2) Replace references in the population, if provided
+        if population is not None:
+            for org_idx, organism in enumerate(population):
+                population[org_idx] = self.inline_deleted_metagene_in_organism(
+                    organism, hash_key, target_contents
+                )
+
+        # 3) Remove references from meta-gene structures
         self.remove_meta_gene(hash_key)
         self.metagene_usage.pop(hash_key, None)
         self.deletion_basket.pop(hash_key, None)
         self.encodings.pop(hash_key, None)
 
-        # Add to unused_encodings for potential reuse
+        # 4) Add to unused_encodings for potential reuse
         if hasattr(self, 'unused_encodings') and self.unused_encodings is not None:
             self.unused_encodings.append(hash_key)
 
         if self.debug:
             print(f"[MetaGeneManager] Deleted metagene {hash_key}.")
+
+    def inline_deleted_metagene_in_organism(self, organism, old_key, replacement_contents):
+        """
+        Recursively replace references to a deleted metagene in a single organism.
+
+        :param organism: The list of hash keys representing the organism.
+        :param old_key: The hash key of the metagene being deleted.
+        :param replacement_contents: The contents (list of hash keys) that should replace old_key.
+        :return: A new list of hash keys (the updated organism).
+        """
+        org_list = organism[:]
+        i = 0
+        while i < len(org_list):
+            if org_list[i] == old_key:
+                # Inline the contents
+                org_list[i:i + 1] = replacement_contents
+                i += len(replacement_contents)
+            else:
+                i += 1
+        return org_list
 
     def capture_metagene(self, encoded_segment, generate_hash_key_func, unused_encodings, gene_counter_ref, logger=None,
                          verbose=False):

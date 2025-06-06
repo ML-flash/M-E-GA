@@ -165,8 +165,10 @@ class MetaGeneManager:
         if hash_key not in self.meta_genes or hash_key not in self.encodings:
             return
 
-        # Get the content of the metagene that will be deleted
+        # Get the content of the metagene that will be deleted and immediately
+        # remove the entry so it's freed for reuse
         target_contents = list(self.encodings[hash_key])
+        self.encodings.pop(hash_key, None)
 
         # Replace references in all other metagenes
         for meta_key in list(self.meta_genes):  # Create a copy of the list to safely iterate

@@ -32,11 +32,11 @@ class IDontKnow:
         self.ensure_log_directory()
 
         # Step rewards/penalties
-        self.step_reward = 2          # Reward for each step up to the soft limit
-        self.step_penalty = -4        # Penalty for each step beyond the soft limit
-        self.soft_step_limit = 300    # Soft limit for steps, adjust as needed
-        self.outside_step_penalty = -4  # Additional penalty for each step outside the box
-        self.penalty_per_remaining_gene = -1  # Penalty for each remaining gene after stopping at boundary
+        self.step_reward = 2
+        self.step_penalty = -4
+        self.soft_step_limit = 300
+        self.outside_step_penalty = -4
+        self.penalty_per_remaining_gene = -1
 
     def ensure_log_directory(self):
         log_dir = os.path.dirname(self.log_filename)
@@ -86,37 +86,84 @@ class IDontKnow:
         sack['current_size'] += item['properties']['size']
         sack['current_weight'] += item['properties']['weight']
         sack['current_density'] += item['properties']['density']
-        self.apply_interactions(item, sack['items'], verbose=verbose)
+        # No interactions applied during collection - only at final evaluation
 
-    def apply_interactions(self, new_item, items_in_sack, verbose=False):
-        for interaction in new_item['interactions']:
-            for item in items_in_sack:
-                if item['group'] == interaction['target_group']:
-                    affected_property = interaction['property']
-                    direction = interaction['direction']
-                    magnitude = interaction['magnitude'] * new_item['reaction_strength']
-                    change = magnitude if direction == 'increase' else -magnitude
-                    old_value = item['properties'][affected_property]
-                    item['properties'][affected_property] = max(0, old_value + change)
+    def _apply_single_interaction(self, source_item, target_item, interaction):
+        """
+        Apply a single interaction from source_item to target_item.
+        """
+        affected_property = interaction['property']
+        direction = interaction['direction']
+        magnitude = interaction['magnitude'] * source_item['reaction_strength']
+        change = magnitude if direction == 'increase' else -magnitude
+        
+        old_value = target_item['properties'][affected_property]
+        target_item['properties'][affected_property] = max(0, old_value + change)
 
     def calculate_sack_value(self, sack, verbose=False):
+        """
+        Calculate final sack value with full bidirectional interactions.
+        This is the only place where interactions are computed.
+        """
+        if not sack['items']:
+            return 0
+        
+        # Apply all bidirectional interactions to get final state
+        self.apply_final_interactions(sack['items'])
+        
+        # Calculate total value after all interactions
         total_value = sum(item['properties']['value'] for item in sack['items'])
         return total_value
+    
+    def apply_final_interactions(self, items_in_sack):
+        """
+        Apply all bidirectional interactions between items in final sack.
+        Only called once at the end for fitness evaluation.
+        """
+        if len(items_in_sack) <= 1:
+            return
+        
+        # Apply all interactions between all pairs of items
+        max_iterations = 5  # Prevent infinite loops
+        
+        for iteration in range(max_iterations):
+            significant_changes = False
+            
+            for i, item1 in enumerate(items_in_sack):
+                for j, item2 in enumerate(items_in_sack):
+                    if i != j:
+                        for interaction in item1['interactions']:
+                            if item2['group'] == interaction['target_group']:
+                                old_value = item2['properties'][interaction['property']]
+                                self._apply_single_interaction(item1, item2, interaction)
+                                new_value = item2['properties'][interaction['property']]
+                                
+                                if abs(old_value - new_value) > 0.01:  # Threshold for significant change
+                                    significant_changes = True
+            
+            if not significant_changes:
+                break  # Reached equilibrium
 
     def drop_oldest_item(self, sack, current_position, items, verbose=False):
         if not sack['items']:
             return False
 
-        item_at_position = next((item for item in items if item['position'] == current_position), None)
+        oldest_item = sack['items'][0]  # Get the item we're about to drop
+        
+        # Check if there's a DIFFERENT item already at this position
+        item_at_position = next((item for item in items if item['position'] == current_position and item['id'] != oldest_item['id']), None)
         if item_at_position:
-            return False
+            return False  # Can't drop - position is occupied by a different item
 
-        oldest_item = sack['items'].pop(0)
+        # Remove from sack
+        sack['items'].pop(0)
         sack['current_size'] -= oldest_item['properties']['size']
         sack['current_weight'] -= oldest_item['properties']['weight']
         sack['current_density'] -= oldest_item['properties']['density']
 
+        # Place at current position
         oldest_item['position'] = current_position
+        # No interaction recalculation needed - final evaluation handles all interactions
 
         return True
 
@@ -141,6 +188,7 @@ class IDontKnow:
         # Store original positions of all items
         original_positions = {item['id']: item['position'] for item in self.items}
         dropped_items = set()
+        collected_items = set()  # Prevent re-collection
 
         genes_processed = 0
         total_genes = len(decoded_individual)
@@ -155,34 +203,34 @@ class IDontKnow:
 
         for gene in decoded_individual:
             if gene == 'DR':
-                if sack['items']:  # Check if there are items in the sack to drop
-                    item_to_drop = sack['items'][0]  # Get the oldest item (first in the list)
+                if sack['items']:
+                    item_to_drop = sack['items'][0]
                     if self.drop_oldest_item(sack, (x, y, z), self.items, verbose):
                         fitness_score += drop_reward
-                        dropped_items.add(item_to_drop['id'])  # Add the ID of the dropped item
+                        dropped_items.add(item_to_drop['id'])
+                        # Allow re-collection of dropped items
+                        collected_items.discard(item_to_drop['id'])
             elif gene in self.directions:
                 dx, dy, dz = self.directions[gene]
                 x += dx
                 y += dy
                 z += dz
 
-                # Wrap coordinates to make the volume toroidal
                 x = wrap_coordinate(x)
                 y = wrap_coordinate(y)
                 z = wrap_coordinate(z)
                 new_pos = (x, y, z)
 
-                # Apply step reward/penalty based on step count
                 if step_count < self.soft_step_limit:
                     fitness_score += self.step_reward
                 else:
                     fitness_score += self.step_penalty
 
-                # Handle item collection
                 item_at_position = next((item for item in self.items if item['position'] == new_pos), None)
-                if item_at_position:
+                if item_at_position and item_at_position['id'] not in collected_items:
                     if self.can_add_item_to_sack(item_at_position, sack):
                         self.collect_item(item_at_position, sack, verbose)
+                        collected_items.add(item_at_position['id'])
 
                 visited_positions.add(new_pos)
                 final_position = (x, y, z)
@@ -190,8 +238,13 @@ class IDontKnow:
             genes_processed += 1
 
         if step_count > 0:
-            fitness_score += self.calculate_sack_value(sack, verbose)
-            fitness_score *= 1.75 ** len(sack['items'])
+            base_value = self.calculate_sack_value(sack, verbose)
+            fitness_score += base_value
+            
+            # Replace exponential with more reasonable scaling
+            # Still rewards collecting more items, but doesn't dominate everything
+            if len(sack['items']) > 0:
+                fitness_score *= (1 + len(sack['items']) * 0.1)  # 10% bonus per item
 
         # Reset positions of collected items, keep dropped items in their new positions
         for item in self.items:

@@ -1,22 +1,16 @@
 import random
-from M_E_GA_Base import M_E_GA_Base
-from concurrent.futures import ThreadPoolExecutor
-import os
+from M_E_GA import M_E_GA_Base
 from I_Dont_Know_Drop import IDontKnow
 
-GLOBAL_SEED = None
-random.seed(GLOBAL_SEED)
-
-
-VOLUME = 15
-NUM_ITEMS = 500
+# Global configuration
+VOLUME = 25
+NUM_ITEMS = 600
 NUM_GROUPS = 6
 MAX_SIZE = 500
-MAX_WEIGHT = 20
-MAX_DENSITY = 200
-
-
+MAX_WEIGHT = 100
+MAX_DENSITY = 300
 GLOBAL_SEED = None
+
 random.seed(GLOBAL_SEED)
 
 best_organism = {
@@ -32,14 +26,65 @@ def update_best_organism(current_genome, current_fitness, verbose=True):
         if verbose:
             print(f"New best organism found with fitness {current_fitness}")
 
-def evaluate_population(population, encoding_manager, num_threads=None):
-    if num_threads is None:
-        num_threads = os.cpu_count()
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        results = list(executor.map(lambda ind: evaluate_individual(ind, encoding_manager), population))
-    return results
+class PopulationFitnessEvaluator:
+    """
+    Population-level fitness evaluator for scenarios with temporal dependencies.
+    
+    CRITICAL: This evaluator maintains a single fitness function instance
+    throughout the entire GA run. The fitness function state is NEVER
+    reinitialized between individuals or generations to preserve temporal
+    dependencies and accumulated state changes.
+    """
+    
+    def __init__(self, fitness_function):
+        self.fitness_function = fitness_function
+        self.evaluation_count = 0  # Track total evaluations for debugging
+        
+        # Store the fitness function ID to verify it's never replaced
+        self.fitness_function_id = id(fitness_function)
+        
+        print(f"PopulationFitnessEvaluator initialized with fitness function ID: {self.fitness_function_id}")
+    
+    def evaluate_individual(self, individual, ga_instance):
+        """
+        Evaluate a single individual using the persistent fitness function.
+        
+        The fitness function state carries forward from all previous evaluations.
+        """
+        # Verify we're still using the same fitness function instance
+        current_id = id(self.fitness_function)
+        if current_id != self.fitness_function_id:
+            raise RuntimeError(f"Fitness function instance changed! Original: {self.fitness_function_id}, Current: {current_id}")
+        
+        self.evaluation_count += 1
+        return self.fitness_function.compute(individual, ga_instance)
+    
+    def evaluate(self, population, ga_instance):
+        """
+        Evaluate the entire population sequentially using the persistent fitness function.
+        
+        Each evaluation modifies the fitness landscape, so:
+        1. Order matters (sequential evaluation required)
+        2. Threading is impossible (would break temporal dependencies)
+        3. State persists across all evaluations in all generations
+        
+        :param population: List of encoded organisms
+        :param ga_instance: The GA instance for context
+        :return: List of fitness scores
+        """
+        generation = getattr(ga_instance, 'current_generation', 'Unknown')
+        print(f"Total evaluations so far: {self.evaluation_count}")
+        
+        fitness_scores = []
+        for individual in population:
+            fitness = self.evaluate_individual(individual, ga_instance)
+            fitness_scores.append(fitness)
+        
+        return fitness_scores
 
-# Initialize the fitness function with update function passed in
+# CRITICAL: Initialize the fitness function ONCE and reuse throughout entire GA run
+# This single instance maintains all temporal dependencies and accumulated state
+# The fitness function state is NEVER reset between individuals or generations
 fitness_function = IDontKnow(
     volume=VOLUME,
     num_items=NUM_ITEMS,
@@ -51,21 +96,27 @@ fitness_function = IDontKnow(
 )
 genes = fitness_function.genes
 
+print(f"Fitness function initialized with ID: {id(fitness_function)}")
+print(f"Fitness function will persist throughout entire GA run maintaining temporal state")
+
+# Create the population fitness evaluator
+population_evaluator = PopulationFitnessEvaluator(fitness_function)
+
 config = {
     'mutation_prob': 0.15,
     'delimited_mutation_prob': 0.10,
-    'open_mutation_prob': 0.06,
-    'capture_mutation_prob': 0.08,
+    'open_mutation_prob': 0.09,
+    'metagene_mutation_prob': 0.06,  
     'delimiter_insert_prob': 0.05,
-    'delimit_delete_prob': 0.1,
+    'delimit_delete_prob': 0.05,
     'crossover_prob': 0.0,
-    'elitism_ratio': 0.00,
-    'base_gene_prob': 0.30,
-    'capture_gene_prob': 0.05,
-    'max_individual_length': 200,
+    'elitism_ratio': 0.07,
+    'base_gene_prob': 0.45,
+    'metagene_prob': 0.01,
+    'max_individual_length': 40,
     'population_size': 500,
-    'num_parents': 200,
-    'max_generations': 1000,
+    'num_parents': 300,
+    'max_generations': 8000,
     'delimiters': False,
     'delimiter_space': 2,
     'logging': True,
@@ -73,21 +124,36 @@ config = {
     'mutation_logging': True,
     'crossover_logging': True,
     'individual_logging': True,
-    'seed': GLOBAL_SEED
+    'seed': GLOBAL_SEED,
+    'lru_cache_size': 100
 }
 
-# Initialize the GA with the selected genes and the fitness function's compute method
-ga = M_E_GA_Base(genes, lambda ind, ga_instance: fitness_function.compute(ind, ga_instance), **config)
+# Initialize the GA with the population evaluator instead of individual fitness function
+ga = M_E_GA_Base(
+    genes=genes,
+    fitness_function=None,  # Not used when fitness_evaluator is provided
+    fitness_evaluator=population_evaluator,  # Use population-level evaluator
+    **config
+)
 
 # Run the GA
+print("Starting GA run with persistent fitness function...")
 ga.run_algorithm()
+
+# Verify fitness function persistence
+print(f"\nGA completed. Fitness function ID verification:")
+print(f"  Original fitness function ID: {id(fitness_function)}")
+print(f"  Evaluator's fitness function ID: {id(population_evaluator.fitness_function)}")
+print(f"  Total evaluations performed: {population_evaluator.evaluation_count}")
+print(f"  Fitness function state preserved: {id(fitness_function) == id(population_evaluator.fitness_function)}")
 
 # Find the best solution
 best_genome = best_organism["genome"]
 best_fitness = best_organism["fitness"]
 best_solution_decoded = ga.decode_organism(best_genome, format=True)
 
-print('Length of best solution:', len(best_solution_decoded))
+print(f'\nResults:')
+print(f'Length of best solution: {len(best_solution_decoded)}')
 print(f"Best Solution (Decoded): {best_solution_decoded}, Fitness: {best_fitness}")
-print('Length of best genome:', len(best_organism["genome"]))
+print(f'Length of best genome: {len(best_organism["genome"])}')
 print(f"Best Genome (Encoded): {best_genome}")

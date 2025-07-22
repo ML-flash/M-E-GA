@@ -3,11 +3,11 @@ from M_E_GA import M_E_GA_Base
 from I_Dont_Know_Drop import IDontKnow
 
 # Global configuration
-VOLUME = 25
-NUM_ITEMS = 600
-NUM_GROUPS = 6
+VOLUME = 60
+NUM_ITEMS = 1000
+NUM_GROUPS = 20
 MAX_SIZE = 500
-MAX_WEIGHT = 100
+MAX_WEIGHT = 75
 MAX_DENSITY = 300
 GLOBAL_SEED = None
 
@@ -105,14 +105,14 @@ population_evaluator = PopulationFitnessEvaluator(fitness_function)
 config = {
     'mutation_prob': 0.15,
     'delimited_mutation_prob': 0.10,
-    'open_mutation_prob': 0.09,
+    'open_mutation_prob': 0.10,
     'metagene_mutation_prob': 0.06,  
-    'delimiter_insert_prob': 0.05,
-    'delimit_delete_prob': 0.05,
+    'delimiter_insert_prob': 0.06,
+    'delimit_delete_prob': 0.06,
     'crossover_prob': 0.0,
     'elitism_ratio': 0.07,
     'base_gene_prob': 0.45,
-    'metagene_prob': 0.01,
+    'metagene_prob': 0.008,
     'max_individual_length': 40,
     'population_size': 500,
     'num_parents': 300,
@@ -125,7 +125,7 @@ config = {
     'crossover_logging': True,
     'individual_logging': True,
     'seed': GLOBAL_SEED,
-    'lru_cache_size': 100
+    'lru_cache_size': 80
 }
 
 # Initialize the GA with the population evaluator instead of individual fitness function

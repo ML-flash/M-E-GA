@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+# [2.0.0-b7] - 2025-06-05
+
+## Added
+- Added `requirements.txt` with dependency specifications.
+
+## Fixed
+- **MetaGene deletion**: Immediately removes the target metagene from `encodings` before replacing references, ensuring freed hash keys can be reused without duplications.
+
 # [2.0.0-b6] - 2025-03-06
 
 ## Fixed

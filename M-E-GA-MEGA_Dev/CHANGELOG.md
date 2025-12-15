@@ -2,7 +2,44 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-# [2.0.0-b1] - 2025-2-18
+
+# [2.0.0-b7] - 2025-06-05
+
+## Added
+- Added `requirements.txt` with dependency specifications.
+
+## Fixed
+- **MetaGene deletion**: Immediately removes the target metagene from `encodings` before replacing references, ensuring freed hash keys can be reused without duplications.
+
+# [2.0.0-b6] - 2025-03-06
+
+## Fixed
+- **Metagene Deletion Bug (Issue #7)**: Fixed an issue where deleted metagenes would cause "Unknown" values in decoded organisms. When a metagene is now marked for deletion, the process properly replaces all references to it in other metagenes with the deleted metagene's contents, ensuring no dangling references remain in the metagenome.
+
+## Changed
+- **EncodingManager**: Updated to explicitly share the `unused_encodings` reference with `meta_manager` to ensure proper recycling of hash keys.
+- **MetaGeneManager**: Enhanced the deletion process to safely iterate through all metagenes and correctly replace dependencies.
+
+
+# [2.0.0-b5] - 2025-3-4
+
+## Changed
+added other missing __init__.py files. Hopefully everything is good now. 
+
+
+# [2.0.0-b4] - 2025-3-4
+
+## Changed
+
+added missing __init__.py files.
+
+
+# [2.0.0-b3] - 2025-2-28
+
+## Changed
+- No changes. Cleaning up a broken .egg that snuk into the b2 release.
+
+# [2.0.0-b2] - 2025-2-18
 
 ## Changed
 
@@ -10,6 +47,11 @@ All notable changes to this project will be documented in this file. The format 
 - Added unit tests.
 - Fixed the `repair` method in `mutation_manager.py`, using a stack-based approach to match delimiters.
 
+# [2.0.0-b1] - 2025-2-14
+
+## Changed
+
+- Fixed Bug in relative imports
 
 # [2.0.0-b0] - 2025-2-2
 

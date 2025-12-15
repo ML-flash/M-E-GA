@@ -1,0 +1,2 @@
+exclude examples/*
+recursive-include tests *

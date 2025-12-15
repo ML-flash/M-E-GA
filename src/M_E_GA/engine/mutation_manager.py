@@ -41,15 +41,17 @@ class MutationManager:
 
     def mutate_organism(self, organism, generation, mutation=None, log_enhanced=False):
         """
-        Mutate an organism by applying various mutation operations.
+        Mutate an organism by applying various mutation operations based on a
+        "stacked probability" model.
 
-        Iterates through the organism and applies a mutation based on probabilities,
-        type, and depth (inside or outside delimiters).
+        Iterates through the organism. At each index, it builds a list of
+        context-appropriate mutations and their independent probabilities.
+        A single random roll determines which mutation (if any) is applied.
 
         :param organism: The encoded organism to mutate.
         :param generation: The current generation number (for logging).
         :param mutation: (Unused) for future extended logic or forced mutation type.
-        :param log_enhanced: If True, returns a list of detailed logs (unused by default).
+        :param log_enhanced: If True, returns a list of detailed logs.
         :return: The mutated organism. If log_enhanced=True, returns (mutated_organism, logs).
         """
         # Log the "before_mutation" state
@@ -58,93 +60,116 @@ class MutationManager:
 
         i = 0
         detailed_logs = []
+        
+        # Get codons once
+        start_codon = self.ga.encoding_manager.reverse_encodings['Start']
+        end_codon = self.ga.encoding_manager.reverse_encodings['End']
+        delimiter_codons = {start_codon, end_codon}
 
         while i < len(organism):
-            original = organism[:]
+            gene = organism[i]
             depth = self.calculate_depth(organism, i)
+            
+            is_delimiter = gene in delimiter_codons
+            
+            # --- FIX: Replaced self.ga.encoding_manager.is_metagene(gene) ---
+            is_metagene = gene in self.ga.encoding_manager.meta_genes
+            # ---------------------------------------------------------------
 
-            # Are we inside delimiters?
+            # --- 1. Build list of possible mutations and their probabilities ---
+            # This replaces the old `select_mutation_type` logic
+            candidates = []  # List of (probability, action_name)
+
             if depth > 0:
-                mutation_prob = self.ga.delimited_mutation_prob
+                # --- We are INSIDE delimiters ---
+                if is_delimiter:
+                    candidates.append((self.ga.delimit_delete_prob, 'delimit_delete'))
+                else:  # Not a delimiter
+                    # Basic mutations (e.g., point, swap, etc.)
+                    candidates.append((self.ga.delimited_mutation_prob, 'basic_delimited_package'))
+                    # Specialized mutations
+                    candidates.append((self.ga.metagene_mutation_prob, 'capture'))
+                    candidates.append((self.ga.open_mutation_prob, 'open_no_delimit'))
+            
             else:
-                mutation_prob = self.ga.mutation_prob
+                # --- We are OUTSIDE delimiters (depth == 0) ---
+                if is_delimiter:
+                    candidates.append((self.ga.delimit_delete_prob, 'delimit_delete'))
+                
+                elif is_metagene:
+                    candidates.append((self.ga.open_mutation_prob, 'open'))
+                    # Also allow basic mutations to *replace* a metagene
+                    candidates.append((self.ga.mutation_prob, 'basic_mutation_package'))
+                
+                else:  # Not delimiter, not metagene
+                    # Basic mutations
+                    candidates.append((self.ga.mutation_prob, 'basic_mutation_package'))
+                    # Specialized mutations
+                    candidates.append((self.ga.delimiter_insert_prob, 'insert_delimiter_pair'))
 
-            if random.random() <= mutation_prob:
-                mutation_type = self.select_mutation_type(organism, i, depth)
-                organism, i, mutation_event = self.apply_mutation(organism, i, mutation_type, generation)
-                if log_enhanced and mutation_event is not None:
-                    detailed_logs.append({
-                        "generation": generation,
-                        "type": mutation_type,
-                        "before": original,
-                        "after": organism[:],
-                        "index": i,
-                        "mutation_event": mutation_event
-                    })
-            else:
-                i += 1
+            # --- 2. Perform the "Single Roll" (Roulette Wheel) ---
+            roll = random.random()
+            prob_sum = 0.0
+            action_performed = False
+
+            for prob, action_name in candidates:
+                prob_sum += prob
+                if roll < prob_sum:
+                    # This "slice" was hit
+
+                    # --- 3. Resolve the action ---
+                    mutation_type_to_apply = None
+
+                    if action_name == 'basic_mutation_package':
+                        # Nested choice for basic mutations (preserves old behavior)
+                        basic_choices = ['point', 'swap', 'insertion', 'deletion']
+                        mutation_type_to_apply = random.choice(basic_choices)
+                    
+                    elif action_name == 'basic_delimited_package':
+                        # Nested choice for basic mutations (preserves old behavior)
+                        basic_choices = ['point', 'swap', 'insertion', 'deletion']
+                        mutation_type_to_apply = random.choice(basic_choices)
+                    
+                    else:
+                        # It's a direct action
+                        mutation_type_to_apply = action_name
+
+                    # --- 4. Apply the *one* chosen mutation ---
+                    if mutation_type_to_apply:
+                        # Capture log state *before* applying
+                        original_log_state = organism[:] if log_enhanced else None
+
+                        organism, i, mutation_event = self.apply_mutation(
+                            organism, i, mutation_type_to_apply, generation
+                        )
+
+                        if log_enhanced and mutation_event:
+                            detailed_logs.append({
+                                "generation": generation,
+                                "type": mutation_type_to_apply,
+                                "before": original_log_state,
+                                "after": organism[:],
+                                "index": i,  # `apply_mutation` returns the new, correct index
+                                "mutation_event": mutation_event
+                            })
+
+                    action_performed = True
+                    break  # IMPORTANT: Ensure only one mutation happens per index
+
+            # --- 5. Handle "No Mutation" slice ---
+            if not action_performed:
+                i += 1  # No mutation, just advance the index
 
         if log_enhanced:
             return organism, detailed_logs
         return organism
 
-    def select_mutation_type(self, organism, index, depth):
-        """
-        Select the type of mutation to perform based on the gene and its context.
-
-        :param organism: The encoded organism list.
-        :param index: The current index in the organism.
-        :param depth: The nesting depth (inside delimiters?).
-        :return: The string representing the chosen mutation type.
-        """
-        gene = organism[index]
-        start_codon = self.ga.encoding_manager.reverse_encodings['Start']
-        end_codon = self.ga.encoding_manager.reverse_encodings['End']
-
-        # If it's a Start/End codon
-        if gene in {start_codon, end_codon}:
-            # Possibly a delimiter deletion or swap
-            if random.random() < self.ga.delimit_delete_prob:
-                return 'delimit_delete'
-            else:
-                return 'swap'
-        else:
-            # If inside delimiters
-            if depth > 0:
-                mutation_choices = [
-                    'point', 'swap', 'insertion', 'deletion',
-                    'capture', 'open_no_delimit'
-                ]
-                mutation_weights = [
-                    1.0,  # point
-                    1.0,  # swap
-                    1.0,  # insertion
-                    1.0,  # deletion
-                    self.ga.metagene_mutation_prob,  # capture
-                    self.ga.open_mutation_prob  # open_no_delimit
-                ]
-            else:
-                mutation_choices = [
-                    'point', 'swap', 'insertion', 'deletion',
-                    'insert_delimiter_pair', 'open'
-                ]
-                mutation_weights = [
-                    1.0,  # point
-                    1.0,  # swap
-                    1.0,  # insertion
-                    1.0,  # deletion
-                    self.ga.delimiter_insert_prob,  # insert_delimiter_pair
-                    self.ga.open_mutation_prob  # open
-                ]
-
-            total_weight = sum(mutation_weights)
-            normalized_probs = [w / total_weight for w in mutation_weights]
-            mutation_type = random.choices(mutation_choices, weights=normalized_probs, k=1)[0]
-            return mutation_type
-
     def apply_mutation(self, organism, index, mutation_type, generation):
         """
         Apply the selected mutation operation on the organism at the given index.
+
+        This method is now called *after* the mutation type has been
+        definitively selected by the stacked probability roll.
 
         :param organism: The encoded organism.
         :param index: Current position in the organism.
@@ -172,7 +197,7 @@ class MutationManager:
         elif mutation_type == 'insert_delimiter_pair':
             return insert_delimiter_pair(organism, index, generation, self)
         else:
-            # No recognized mutation
+            # No recognized mutation / safety fallback
             index += 1
             return organism, index, None
 
@@ -187,11 +212,16 @@ class MutationManager:
         start_codon = self.ga.encoding_manager.reverse_encodings['Start']
         end_codon = self.ga.encoding_manager.reverse_encodings['End']
         depth = 0
-        for codon in organism[:index + 1]:
+        # Iterate up to (but not including) the current index
+        for i in range(index):
+            codon = organism[i]
             if codon == start_codon:
                 depth += 1
             elif codon == end_codon:
-                depth -= 1
+                # This logic ensures depth can't go negative
+                # if the organism is malformed (e.g., "End" "Start")
+                if depth > 0:
+                    depth -= 1
         return depth
 
     def select_gene(self):
@@ -218,10 +248,11 @@ class MutationManager:
                 for i in range(total_meta)
             ]
             weight_sum = sum(weights)
-            if weight_sum == 0:
-                normalized_weights = [1.0 / total_meta] * total_meta
-            else:
-                normalized_weights = [w / weight_sum for w in weights]
+            if weight_sum == 0 or total_meta == 0:
+                # Fallback if weights are 0 or no metagenes
+                return self.select_gene() 
+            
+            normalized_weights = [w / weight_sum for w in weights]
             gene_key = random.choices(meta_gene_keys, weights=normalized_weights, k=1)[0]
             return gene_key
 
@@ -281,19 +312,23 @@ class MutationManager:
         # Using "stack of indices" approach:
         stack = []
         i = 0
-        while i < len(organism):
-            if organism[i] == start_codon:
+        
+        # Convert to list for mutation
+        organism_list = list(organism)
+        
+        while i < len(organism_list):
+            if organism_list[i] == start_codon:
                 # push the index of the Start to the stack
                 stack.append(i)
                 i += 1
-            elif organism[i] == end_codon:
+            elif organism_list[i] == end_codon:
                 if stack:
                     # pop a matching Start, so we have a valid pair
                     stack.pop()
                     i += 1
                 else:
                     # unmatched End, remove it
-                    del organism[i]
+                    del organism_list[i]
             else:
                 i += 1
 
@@ -301,9 +336,9 @@ class MutationManager:
         # They are at indices in stack, which might be out-of-date if we've deleted codons in the loop
         # So we do it carefully from the end.
         for idx in reversed(stack):
-            del organism[idx]
+            del organism_list[idx]
 
-        return organism
+        return tuple(organism_list)
 
     def log_mutation_if_needed(self, mutation_log):
         """

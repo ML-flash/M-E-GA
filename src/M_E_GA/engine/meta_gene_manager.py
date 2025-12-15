@@ -55,6 +55,8 @@ class MetaGeneManager:
         self.lru_cache_size = lru_cache_size
         self.current_generation = 0
         self.debug = debug
+        # Reference to unused_encodings will be set by EncodingManager
+        self.unused_encodings = None
 
     def get_metagene_status(self):
         """
@@ -92,7 +94,7 @@ class MetaGeneManager:
         self.current_generation += 1
         to_delete = []
 
-        # Identify who to kill
+        # Identify which metagenes to delete
         for hash_key, gen_count in list(self.deletion_basket.items()):
             if gen_count >= 2:
                 to_delete.append(hash_key)
@@ -104,7 +106,7 @@ class MetaGeneManager:
                 if self.debug:
                     print(f"[MetaGeneManager] Incrementing usage for metagene {hash_key} to {gen_count + 1}.")
 
-        # Do actual deletions
+        # Do actual deletions without special ordering - relies on proper replacement in delete_metagene
         for hash_key in to_delete:
             self.delete_metagene(hash_key)
 
@@ -160,34 +162,48 @@ class MetaGeneManager:
 
         :param hash_key: The integer key for the metagene to delete.
         """
-        if hash_key not in self.meta_genes:
+        if hash_key not in self.meta_genes or hash_key not in self.encodings:
             return
 
-        target_contents = list(self.encodings[hash_key])  # the tuple with actual references
+        # Get the content of the metagene that will be deleted and immediately
+        # remove the entry so it's freed for reuse
+        target_contents = list(self.encodings[hash_key])
+        self.encodings.pop(hash_key, None)
 
-        # Replace references in other metagenes
-        for meta_key in list(self.meta_genes):
-            if meta_key != hash_key and isinstance(self.encodings[meta_key], tuple):
-                meta_contents = list(self.encodings[meta_key])
-                modified = False
+        # Replace references in all other metagenes
+        for meta_key in list(self.meta_genes):  # Create a copy of the list to safely iterate
+            if meta_key == hash_key:
+                continue  # Skip the metagene being deleted
+                
+            if meta_key not in self.encodings or not isinstance(self.encodings[meta_key], tuple):
+                continue  # Skip invalid metagenes
+                
+            meta_contents = list(self.encodings[meta_key])
+            modified = False
 
-                i = 0
-                while i < len(meta_contents):
-                    if meta_contents[i] == hash_key:
-                        meta_contents[i:i + 1] = target_contents
-                        modified = True
-                        i += len(target_contents)
-                    else:
-                        i += 1
+            # Look for references to the hash_key being deleted
+            i = 0
+            while i < len(meta_contents):
+                if meta_contents[i] == hash_key:
+                    # Replace the reference with the actual contents
+                    meta_contents[i:i + 1] = target_contents
+                    modified = True
+                    i += len(target_contents)
+                else:
+                    i += 1
 
-                if modified:
-                    self.encodings[meta_key] = tuple(meta_contents)
+            if modified:
+                self.encodings[meta_key] = tuple(meta_contents)
 
         # Finally remove references
         self.remove_meta_gene(hash_key)
         self.metagene_usage.pop(hash_key, None)
         self.deletion_basket.pop(hash_key, None)
         self.encodings.pop(hash_key, None)
+
+        # Add to unused_encodings for potential reuse
+        if hasattr(self, 'unused_encodings') and self.unused_encodings is not None:
+            self.unused_encodings.append(hash_key)
 
         if self.debug:
             print(f"[MetaGeneManager] Deleted metagene {hash_key}.")
@@ -209,11 +225,14 @@ class MetaGeneManager:
         if not encoded_segment:
             return False
 
+        # Store reference to unused_encodings for later use in delete_metagene
+        self.unused_encodings = unused_encodings
+
         segment_tuple = tuple(encoded_segment)
 
         # Check for existing identical metagene
         for meta_id in self.meta_genes:
-            if self.encodings[meta_id] == segment_tuple:
+            if meta_id in self.encodings and self.encodings[meta_id] == segment_tuple:
                 self.update_metagene_usage(meta_id)
                 return meta_id
 
@@ -251,24 +270,26 @@ class MetaGeneManager:
     def open_metagene(self, hash_key, start_key, end_key, no_delimit=False):
         """
         Decompress or 'open' a metagene by substituting its contents in place,
-        optionally wrapping them with Start/End delimiters.
+        wrapping with Start/End delimiters according to context.
+
+        Context is passed via the `no_delimit` flag from the mutation manager:
+            - no_delimit=False : Outside of any delimiters → Start ... End
+            - no_delimit=True  : Within the context of delimiters → ... (Omit delimiters)
 
         :param hash_key: The integer key referencing the metagene.
         :param start_key: The integer key representing 'Start'.
         :param end_key: The integer key representing 'End'.
-        :param no_delimit: If True, do not add Start/End.
+        :param no_delimit: Context flag set by MutationManager based on delimiter depth.
         :return: A list of integer hash keys representing the expanded sequence.
         """
         if hash_key not in self.encodings or not isinstance(self.encodings[hash_key], tuple):
             return [hash_key]
 
-        decompressed = []
-        if not no_delimit:
-            decompressed.append(start_key)
-
-        decompressed.extend(self.encodings[hash_key])
+        contents = list(self.encodings[hash_key])
 
         if not no_delimit:
-            decompressed.append(end_key)
-
-        return decompressed
+            # Outside delimiters: Start ... End
+            return [start_key] + contents + [end_key]
+        else:
+            # Inside delimiters: Return raw content (Omission)  # <-- MODIFIED
+            return contents

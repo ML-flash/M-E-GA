@@ -113,14 +113,13 @@ class PopulationManager:
 
                 # Possibly apply crossover
                 if random.random() < self.ga.crossover_prob:
-                    non_del_indices = self.ga.crossover_manager.get_non_delimiter_indices(parent1, parent2)
                     offspring1, offspring2 = self.ga.crossover_manager.crossover(
-                        parent1, parent2, non_del_indices, generation
+                        parent1, parent2, generation
                     )
                 else:
                     offspring1, offspring2 = parent1[:], parent2[:]
 
-                # Updated references to the logging manager
+                # Log new organisms
                 self.ga.logging_manager.log_new_organism(offspring1)
                 self.ga.logging_manager.log_new_organism(offspring2)
 

@@ -34,32 +34,36 @@ def perform_capture(organism, index, generation, manager):
                     'captured_codon': captured_codon
                 }
                 manager.log_mutation_if_needed(mutation_log)
-                return organism, start_idx, mutation_log
+                # Advance past the newly inserted metagene codon
+                return organism, start_idx + 1, mutation_log
 
     return organism, index + 1, None
 
 
 def perform_open(organism, index, generation, manager, no_delimit=False):
     """
-    Expand a metagene back into its content, optionally with or without delimiters.
+    Expand a metagene back into its content, adding delimiters according to context.
 
     :param organism: The encoded organism.
     :param index: Position in the organism.
     :param generation: Current generation.
     :param manager: The MutationManager instance for referencing GA/logging.
-    :param no_delimit: If True, do not add Start/End around the decompressed content.
+    :param no_delimit:
+        Context flag set by MutationManager based on delimiter depth:
+            - False: Outside of any delimiters → wrap with [Start] ... [End]
+            - True : Within the context of delimiters → omit delimiters entirely
     :return: (organism, new_index, mutation_log).
     """
     ga = manager.ga
     decompressed = ga.encoding_manager.open_metagene(organism[index], no_delimit=no_delimit)
     if decompressed is not False:
         organism = organism[:index] + decompressed + organism[index + 1:]
-        # Adjust index to skip the expanded contents
-        new_index = index + len(decompressed) - 1
+        # Advance past all expanded content to the next unprocessed position
+        new_index = index + len(decompressed)
         mutation_log = {
             'type': 'open' if not no_delimit else 'open_no_delimit',
             'generation': generation,
-            'index': new_index,
+            'index': index,
             'decompressed_content': decompressed
         }
         manager.log_mutation_if_needed(mutation_log)

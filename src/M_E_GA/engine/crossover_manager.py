@@ -22,83 +22,69 @@ class CrossoverManager:
         """
         self.ga = ga_instance
 
-    def crossover(self, parent1, parent2, non_delimited_indices, generation):
+    def crossover(self, parent1, parent2, generation):
         """
-        Perform a crossover operation between two parents at a random non-delimited index.
+        Perform a crossover operation between two parents at independent depth-zero positions.
+        
+        Each parent is cut at a randomly selected depth-zero position (outside all delimiter pairs).
+        The cut points do NOT need to align between parents.
 
         :param parent1: The first parent's organism encoding.
         :param parent2: The second parent's organism encoding.
-        :param non_delimited_indices: Indices that are safe for crossover (no Start/End messing).
         :param generation: Current generation number (for logging).
         :return: (offspring1, offspring2) after the crossover.
         """
-        crossover_point = self.choose_crossover_point(non_delimited_indices)
-        if crossover_point is None:
+        valid_cuts_p1 = self.get_depth_zero_cuts(parent1)
+        valid_cuts_p2 = self.get_depth_zero_cuts(parent2)
+        
+        if not valid_cuts_p1 or not valid_cuts_p2:
+            # No valid cuts in one or both parents - return copies
             offspring1, offspring2 = parent1[:], parent2[:]
+            crossover_point = None
         else:
-            offspring1 = parent1[:crossover_point] + parent2[crossover_point:]
-            offspring2 = parent2[:crossover_point] + parent1[crossover_point:]
+            # Independent random cuts for each parent
+            cut1 = random.choice(valid_cuts_p1)
+            cut2 = random.choice(valid_cuts_p2)
+            
+            # Swap segments after cut points
+            offspring1 = parent1[:cut1] + parent2[cut2:]
+            offspring2 = parent2[:cut2] + parent1[cut1:]
+            
+            crossover_point = (cut1, cut2)
 
-        # Updated reference to the logging manager
+        # Log the crossover event
         self.ga.logging_manager.log_crossover(
             generation, parent1, parent2, crossover_point, offspring1, offspring2
         )
         return offspring1, offspring2
 
-    def choose_crossover_point(self, non_delimited_indices):
+    def get_depth_zero_cuts(self, parent):
         """
-        Randomly select a crossover point from the provided non-delimited indices.
+        Get all valid crossover cut positions for a parent.
+        A valid cut position is after any index where delimiter depth is zero.
 
-        :param non_delimited_indices: A list of valid indices for crossover.
-        :return: The selected crossover index or None if no valid index exists.
-        """
-        if not non_delimited_indices:
-            return None
-        return random.choice(non_delimited_indices)
-
-    def get_non_delimiter_indices(self, parent1, parent2):
-        """
-        Determine the indices that are not part of delimited segments for both parents.
-
-        :param parent1: First parent's organism encoding.
-        :param parent2: Second parent's organism encoding.
-        :return: A list of indices that are safe to use for crossover.
-        """
-        delimiter_indices = self.calculate_delimiter_indices(parent1, parent2)
-        min_len = min(len(parent1), len(parent2))
-        non_delimited = set(range(min_len))
-
-        for (start_idx, end_idx) in delimiter_indices:
-            # Remove those indices from the available set
-            for i in range(start_idx, end_idx + 1):
-                if i in non_delimited:
-                    non_delimited.remove(i)
-
-        return list(non_delimited)
-
-    def calculate_delimiter_indices(self, parent1, parent2):
-        """
-        Calculate the indices of delimiter segments for both parents combined.
-
-        :param parent1: The first parent's organism encoding.
-        :param parent2: The second parent's organism encoding.
-        :return: A list of (start, end) index pairs indicating delimited ranges.
-        """
-        # We'll gather ranges for each parent
-        combined = []
-        combined.extend(self._extract_delimiter_ranges(parent1))
-        combined.extend(self._extract_delimiter_ranges(parent2))
-        return combined
-
-    def _extract_delimiter_ranges(self, organism):
-        """
-        Helper to parse an organism and find all (start, end) delimiter pairs in the encoding.
+        :param parent: The parent's organism encoding.
+        :return: List of valid cut positions (indices after which to cut).
         """
         start_codon = self.ga.encoding_manager.reverse_encodings['Start']
         end_codon = self.ga.encoding_manager.reverse_encodings['End']
-        starts = [i for i, codon in enumerate(organism) if codon == start_codon]
-        ends = [i for i, codon in enumerate(organism) if codon == end_codon]
-        return list(zip(starts, ends))
+        
+        valid_cuts = []
+        depth = 0
+        
+        for i in range(len(parent)):
+            # Update depth based on current token
+            if parent[i] == start_codon:
+                depth += 1
+            elif parent[i] == end_codon:
+                depth -= 1
+            
+            # Valid cut: after this position, if depth is zero
+            # Don't cut after the last element (would produce empty offspring)
+            if depth == 0 and i < len(parent) - 1:
+                valid_cuts.append(i + 1)
+        
+        return valid_cuts
 
     def is_fully_delimited(self, organism):
         """

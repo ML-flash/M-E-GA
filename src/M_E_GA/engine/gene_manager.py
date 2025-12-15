@@ -90,14 +90,49 @@ class GeneManager:
             encoded_list.append(self.reverse_encodings[gene])
         return encoded_list
 
-    @functools.lru_cache(maxsize=1000)
-    def decode_genes(self, encoded_tuple, update_usage_func=None):
+
+    def decode_genes(self, encoded_data, update_usage_func=None):
         """
-        Decodes an encoded tuple of hash keys back into the original gene sequence.
-        Utilizes an LRU cache for efficiency.
+        PUBLIC: Decodes an organism, updates LRU for TOP-LEVEL genes only.
+        This is the new entry point called by EncodingManager.
+
+        :param encoded_data: A list/tuple (or single int) of top-level gene keys.
+        :param update_usage_func: Callback to update usage record for meta-genes.
+        :return: A list of gene strings.
+        """
+        if not encoded_data:
+            return []
+        
+        if not isinstance(encoded_data, (list, tuple)):
+            encoded_data = [encoded_data]
+
+        decoded_sequence = []
+        for hash_key in encoded_data:
+            if hash_key in self.encodings:
+                
+                
+                if update_usage_func:
+                    update_usage_func(hash_key)
+
+                value = self.encodings[hash_key]
+                if isinstance(value, tuple):
+                    # It's a metagene. Recurse using the *private* helper.
+                    decoded_sequence.extend(self._recursive_decode(value))
+                else:
+                    # It's a base gene
+                    decoded_sequence.append(value)
+            else:
+                decoded_sequence.append("Unknown")
+        
+        return decoded_sequence
+
+    @functools.lru_cache(maxsize=1000)
+    def _recursive_decode(self, encoded_tuple):
+        """
+        PRIVATE: Decodes an encoded tuple of hash keys *without* updating usage.
+        Utilizes an LRU cache for efficiency. (Formerly decode_genes)
 
         :param encoded_tuple: A tuple (or a single int) representing encoded genes/metagenes.
-        :param update_usage_func: Callback to update usage record for meta-genes, if needed.
         :return: A list of gene strings, which may also contain "Unknown".
         """
         if not encoded_tuple:
@@ -112,12 +147,7 @@ class GeneManager:
         while stack:
             hash_key = stack.pop(0)
             if hash_key in self.encodings:
-                value = self.encodings[hash_key]
-                # If there's a meta-usage function, update usage.
-                if update_usage_func:
-                    update_usage_func(hash_key)
-
-                # If it's a tuple, we expand it
+                value = self.encodings[hash_key]                
                 if isinstance(value, tuple):
                     stack = list(value) + stack
                 else:

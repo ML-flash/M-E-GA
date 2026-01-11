@@ -1,15 +1,15 @@
 # Mutable Encoding enabled Genetic Algorithm (MEGA)
 
 ## Description
-With corporate influence over Artificial Intelligence and Machine Learning growing more and more every day, I believe it is essential for there to be ML projects brought into the sphere of public control and ownership. The Mutable Encoding Enabled Genetic Algorithm (MEGA) is intended as a foundational first step towards the development of advanced Artificial Intelligence as a public asset.
+With corporate influence over Artificial Intelligence and Machine Learning growing more and more every day, I believe it is essential for there to be ML projects brought into the sphere of public control and ownership. The Mutable Encoding Genetic Algorithm (MEGA) is intended as a foundational first step towards the development of advanced AI/ML applications as a public asset.
 
 MEGA is a passion project of mine that I have been working on for a very long time. It represents years of thought, consideration, and study; 20 in fact (more than half my life). The aim of MEGA is to bring new ideas into the sphere of Evolutionary Algorithms. Through leveraging these new ideas, I hope to provide advancements in the field such as:
 
 - Trivialized transfer learning.
 - More biologically inspired computing models.
-- Rapid iteration and deployment through a general-purpose encoding scheme and easily deployable framework.
+- Rapid iteration and deployment through a general-purpose encoding scheme and easily deployable frameworks.
 - A lower barrier to entry in the form of domain-specific encodings.
-- Providing new approaches to Evolutionary Algorithms in general, offering fresh paths for research and advancement. (hopefully)
+- Providing new approaches to Evolutionary Algorithms in general, offering fresh paths for research and advancement.
 
 ## Index
 1. [Description](#description)
@@ -143,4 +143,4 @@ After installing the M_E_GA package, you can run the included tests to verify th
 I can be reached at matthew.andrews2024@gmail.com or at the MEGA [Discord](https://discord.gg/VXA3Jj3hcv) server.
 
 
-[Buy Me a Coffee](https://ko-fi.com/mlflash)
+[Buy Me a Coffee](https://ko-fi.com/mlflash)ffee](https://ko-fi.com/mlflash)

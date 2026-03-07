@@ -60,15 +60,18 @@ class MutationManager:
 
         i = 0
         detailed_logs = []
-        
+
         # Get codons once
         start_codon = self.ga.encoding_manager.reverse_encodings['Start']
         end_codon = self.ga.encoding_manager.reverse_encodings['End']
         delimiter_codons = {start_codon, end_codon}
 
+        # Pre-compute depth at each position in O(n) instead of O(n) per position
+        depths = self._compute_depths(organism, start_codon, end_codon)
+
         while i < len(organism):
             gene = organism[i]
-            depth = self.calculate_depth(organism, i)
+            depth = depths[i]
             
             is_delimiter = gene in delimiter_codons
             
@@ -142,6 +145,7 @@ class MutationManager:
                         organism, i, mutation_event = self.apply_mutation(
                             organism, i, mutation_type_to_apply, generation
                         )
+                        depths = self._compute_depths(organism, start_codon, end_codon)
 
                         if log_enhanced and mutation_event:
                             detailed_logs.append({
@@ -200,6 +204,18 @@ class MutationManager:
             # No recognized mutation / safety fallback
             index += 1
             return organism, index, None
+
+    @staticmethod
+    def _compute_depths(organism, start_codon, end_codon):
+        depths = [0] * len(organism)
+        depth = 0
+        for i, codon in enumerate(organism):
+            depths[i] = depth
+            if codon == start_codon:
+                depth += 1
+            elif codon == end_codon and depth > 0:
+                depth -= 1
+        return depths
 
     def calculate_depth(self, organism, index):
         """
